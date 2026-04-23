@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Brain,
   Sparkles,
@@ -12,7 +12,8 @@ import {
   X,
   CheckCircle2,
   ArrowRight,
-  Clock
+  Clock,
+  Zap
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -59,11 +60,73 @@ const formatForShare = (r) => {
   ].join('\n');
 };
 
-function Card({ title, children, copyable, onCopy }) {
+// Parse the section-tagged running buffer into a partial result.
+// Handles incomplete sections gracefully (used while streaming).
+function parsePartial(buffer) {
+  const out = {
+    simple_explanation: '',
+    real_life_analogy: '',
+    step_by_step: [],
+    summary: '',
+    action_plan: [],
+    active: null // which section is currently streaming
+  };
+
+  const sections = [
+    { tag: 'SIMPLE', key: 'simple_explanation', type: 'text' },
+    { tag: 'ANALOGY', key: 'real_life_analogy', type: 'text' },
+    { tag: 'STEPS', key: 'step_by_step', type: 'bullets' },
+    { tag: 'SUMMARY', key: 'summary', type: 'text' },
+    { tag: 'ACTIONS', key: 'action_plan', type: 'actions' }
+  ];
+
+  for (const s of sections) {
+    const openTag = `<<${s.tag}>>`;
+    const startIdx = buffer.indexOf(openTag);
+    if (startIdx === -1) continue;
+    const afterStart = startIdx + openTag.length;
+    const endIdx = buffer.indexOf('<<END>>', afterStart);
+    const isClosed = endIdx !== -1;
+    const raw = isClosed ? buffer.slice(afterStart, endIdx) : buffer.slice(afterStart);
+    const content = raw.replace(/^\n+/, '').replace(/\n+$/, '');
+
+    if (!isClosed) out.active = s.key;
+
+    if (s.type === 'text') {
+      out[s.key] = content;
+    } else if (s.type === 'bullets') {
+      out[s.key] = content
+        .split('\n')
+        .map((l) => l.replace(/^\s*[-*]\s*/, '').trim())
+        .filter(Boolean);
+    } else if (s.type === 'actions') {
+      out[s.key] = content
+        .split('\n')
+        .map((l) => l.replace(/^\s*[-*]\s*/, '').trim())
+        .filter(Boolean)
+        .map((line) => {
+          const m = line.match(/^\[([^\]]+)\]\s*(.*)$/);
+          if (m) return { time: m[1].trim(), step: m[2].trim() };
+          return { time: '', step: line };
+        });
+    }
+  }
+  return out;
+}
+
+function Card({ title, children, copyable, onCopy, streaming }) {
   return (
     <div className="fade-in-up rounded-2xl border border-[#E5E7EB] bg-white p-6 sm:p-7 soft-card-shadow">
       <div className="flex items-start justify-between gap-4 mb-3">
-        <h3 className="text-[15px] font-semibold tracking-tight text-[#0B0B0F]">{title}</h3>
+        <div className="flex items-center gap-2">
+          <h3 className="text-[15px] font-semibold tracking-tight text-[#0B0B0F]">{title}</h3>
+          {streaming && (
+            <span className="inline-flex items-center gap-1 text-[11px] text-[#4F46E5] bg-[#EEF2FF] border border-[#E0E7FF] rounded-full px-2 py-0.5">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#4F46E5] animate-pulse" />
+              writing
+            </span>
+          )}
+        </div>
         {copyable && (
           <button
             onClick={onCopy}
@@ -93,10 +156,7 @@ function ModePill({ active, children, hint, onClick }) {
     >
       <span>{children}</span>
       <span
-        className={cn(
-          'ml-2 text-[11px]',
-          active ? 'text-white/70' : 'text-[#6B7280]'
-        )}
+        className={cn('ml-2 text-[11px]', active ? 'text-white/70' : 'text-[#6B7280]')}
       >
         · {hint}
       </span>
@@ -108,9 +168,12 @@ function App() {
   const [topic, setTopic] = useState('');
   const [mode, setMode] = useState('student');
   const [loading, setLoading] = useState(false);
+  const [streaming, setStreaming] = useState(false);
   const [result, setResult] = useState(null);
+  const [activeSection, setActiveSection] = useState(null);
   const [history, setHistory] = useState([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const abortRef = useRef(null);
 
   useEffect(() => {
     try {
@@ -126,6 +189,16 @@ function App() {
     } catch (e) {}
   };
 
+  const saveToHistory = (entry) => {
+    setHistory((prev) => {
+      const next = [entry, ...prev].slice(0, 50);
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
+  };
+
   const handleExplain = async (overrideTopic, overrideMode) => {
     const t = (overrideTopic ?? topic).trim();
     const m = overrideMode ?? mode;
@@ -133,32 +206,162 @@ function App() {
       toast.error('Type something to explain');
       return;
     }
-    setLoading(true);
-    setResult(null);
-    try {
-      const res = await fetch('/api/explain', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic: t, mode: m })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || 'Something went wrong');
 
-      setResult(data);
-      const entry = {
-        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    // Cancel any in-flight stream
+    if (abortRef.current) {
+      try {
+        abortRef.current.abort();
+      } catch (e) {}
+    }
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+
+    setLoading(true);
+    setStreaming(true);
+    setResult({
+      topic: t,
+      mode: m,
+      simple_explanation: '',
+      real_life_analogy: '',
+      step_by_step: [],
+      summary: '',
+      action_plan: []
+    });
+    setActiveSection('simple_explanation');
+
+    let buffer = '';
+    let rafPending = false;
+    const flushUpdate = () => {
+      rafPending = false;
+      const partial = parsePartial(buffer);
+      setResult((prev) => ({
+        ...(prev || {}),
         topic: t,
         mode: m,
-        created_at: new Date().toISOString(),
-        payload: data
+        simple_explanation: partial.simple_explanation,
+        real_life_analogy: partial.real_life_analogy,
+        step_by_step: partial.step_by_step,
+        summary: partial.summary,
+        action_plan: partial.action_plan
+      }));
+      setActiveSection(partial.active);
+    };
+    const scheduleFlush = () => {
+      if (rafPending) return;
+      rafPending = true;
+      if (typeof requestAnimationFrame !== 'undefined') {
+        requestAnimationFrame(flushUpdate);
+      } else {
+        setTimeout(flushUpdate, 16);
+      }
+    };
+
+    try {
+      const res = await fetch('/api/explain/stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic: t, mode: m }),
+        signal: ctrl.signal
+      });
+
+      if (!res.ok || !res.body) {
+        const errBody = await res.json().catch(() => ({}));
+        throw new Error(errBody?.error || `Request failed (${res.status})`);
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let sseBuf = '';
+
+      // Read SSE stream: events separated by blank line
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        sseBuf += decoder.decode(value, { stream: true });
+
+        let sepIdx;
+        while ((sepIdx = sseBuf.indexOf('\n\n')) !== -1) {
+          const chunk = sseBuf.slice(0, sepIdx);
+          sseBuf = sseBuf.slice(sepIdx + 2);
+
+          let evt = 'message';
+          let dataLine = '';
+          for (const line of chunk.split('\n')) {
+            if (line.startsWith('event:')) evt = line.slice(6).trim();
+            else if (line.startsWith('data:')) dataLine += line.slice(5).trim();
+          }
+          if (!dataLine) continue;
+
+          if (evt === 'token') {
+            try {
+              const { text } = JSON.parse(dataLine);
+              if (typeof text === 'string') {
+                buffer += text;
+                scheduleFlush();
+              }
+            } catch (e) {}
+          } else if (evt === 'done') {
+            // Final parse
+            flushUpdate();
+          } else if (evt === 'error') {
+            try {
+              const { message } = JSON.parse(dataLine);
+              throw new Error(message || 'Stream error');
+            } catch (e) {
+              throw e;
+            }
+          }
+        }
+      }
+      // Final flush and save
+      flushUpdate();
+      const finalPartial = parsePartial(buffer);
+      const finalResult = {
+        topic: t,
+        mode: m,
+        generated_at: new Date().toISOString(),
+        simple_explanation: finalPartial.simple_explanation,
+        real_life_analogy: finalPartial.real_life_analogy,
+        step_by_step: finalPartial.step_by_step,
+        summary: finalPartial.summary,
+        action_plan: finalPartial.action_plan
       };
-      const next = [entry, ...history].slice(0, 50);
-      persistHistory(next);
+      setResult(finalResult);
+      setActiveSection(null);
+
+      if (
+        finalResult.simple_explanation ||
+        finalResult.summary ||
+        finalResult.step_by_step.length
+      ) {
+        saveToHistory({
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          topic: t,
+          mode: m,
+          created_at: new Date().toISOString(),
+          payload: finalResult
+        });
+      }
     } catch (err) {
-      toast.error(err?.message || 'Failed to generate');
+      if (err?.name === 'AbortError') {
+        // ignore — user cancelled
+      } else {
+        toast.error(err?.message || 'Failed to generate');
+      }
     } finally {
       setLoading(false);
+      setStreaming(false);
+      abortRef.current = null;
     }
+  };
+
+  const handleStop = () => {
+    if (abortRef.current) {
+      abortRef.current.abort();
+      abortRef.current = null;
+    }
+    setStreaming(false);
+    setLoading(false);
   };
 
   const handleShare = async () => {
@@ -185,6 +388,7 @@ function App() {
     setTopic(entry.topic);
     setMode(entry.mode);
     setResult(entry.payload);
+    setActiveSection(null);
     setSidebarOpen(false);
     if (typeof window !== 'undefined') {
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -199,7 +403,13 @@ function App() {
     persistHistory([]);
   };
 
-  const hasResult = !!result;
+  const hasAnyContent =
+    !!result &&
+    (result.simple_explanation ||
+      result.real_life_analogy ||
+      (result.step_by_step && result.step_by_step.length) ||
+      result.summary ||
+      (result.action_plan && result.action_plan.length));
 
   return (
     <div className="min-h-screen bg-[#F8F9FB]">
@@ -228,7 +438,7 @@ function App() {
         <div className="text-center mb-10 sm:mb-12 fade-in">
           <div className="inline-flex items-center gap-2 text-xs text-[#6B7280] bg-white border border-[#E5E7EB] rounded-full px-3 py-1 mb-6">
             <Sparkles className="h-3.5 w-3.5 text-[#4F46E5]" />
-            AI-powered clarity
+            AI-powered clarity · streaming live
           </div>
           <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-[#0B0B0F]">
             BrainMate
@@ -265,144 +475,184 @@ function App() {
                 </ModePill>
               ))}
             </div>
-            <Button
-              onClick={() => handleExplain()}
-              disabled={loading || !topic.trim()}
-              className="bg-[#4F46E5] hover:bg-[#4338CA] text-white rounded-xl h-10 px-5 font-medium shadow-sm"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Thinking...
-                </>
-              ) : (
-                <>
-                  Explain
-                  <ArrowRight className="h-4 w-4 ml-2" />
-                </>
-              )}
-            </Button>
+            {streaming ? (
+              <Button
+                onClick={handleStop}
+                variant="outline"
+                className="rounded-xl h-10 px-5 font-medium border-[#E5E7EB]"
+              >
+                <X className="h-4 w-4 mr-2" />
+                Stop
+              </Button>
+            ) : (
+              <Button
+                onClick={() => handleExplain()}
+                disabled={loading || !topic.trim()}
+                className="bg-[#4F46E5] hover:bg-[#4338CA] text-white rounded-xl h-10 px-5 font-medium shadow-sm"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Thinking...
+                  </>
+                ) : (
+                  <>
+                    Explain
+                    <ArrowRight className="h-4 w-4 ml-2" />
+                  </>
+                )}
+              </Button>
+            )}
           </div>
-          <div className="mt-2 text-[11px] text-[#9CA3AF] px-1">
-            Tip: press ⌘/Ctrl + Enter to explain
+          <div className="mt-2 text-[11px] text-[#9CA3AF] px-1 flex items-center gap-1.5">
+            <Zap className="h-3 w-3" />
+            Tip: press ⌘/Ctrl + Enter to explain · streams in real time
           </div>
         </div>
 
-        {/* Loading skeleton */}
-        {loading && (
-          <div className="mt-8 space-y-4 fade-in">
-            {[0, 1, 2].map((i) => (
-              <div
-                key={i}
-                className="h-24 rounded-2xl border border-[#E5E7EB] bg-white p-6 soft-card-shadow animate-pulse"
-              >
-                <div className="h-3 w-32 bg-[#F1F2F4] rounded mb-3" />
-                <div className="h-3 w-full bg-[#F1F2F4] rounded mb-2" />
-                <div className="h-3 w-4/5 bg-[#F1F2F4] rounded" />
-              </div>
-            ))}
-          </div>
-        )}
-
         {/* Results */}
-        {hasResult && !loading && (
+        {(streaming || hasAnyContent) && (
           <div className="mt-8 space-y-4">
             {/* Actions bar */}
-            <div className="flex items-center justify-between fade-in">
-              <div className="text-sm text-[#6B7280]">
-                <span className="text-[#0B0B0F] font-medium">{result.topic}</span> · {result.mode} mode
+            {result && (
+              <div className="flex items-center justify-between fade-in">
+                <div className="text-sm text-[#6B7280] truncate">
+                  <span className="text-[#0B0B0F] font-medium">{result.topic}</span> · {result.mode} mode
+                </div>
+                {hasAnyContent && !streaming && (
+                  <div className="flex items-center gap-2 shrink-0 ml-3">
+                    <button
+                      onClick={() => copyText(formatForShare(result))}
+                      className="inline-flex items-center gap-1.5 text-xs text-[#0B0B0F] bg-white border border-[#E5E7EB] rounded-lg px-3 py-1.5 hover:border-[#0B0B0F]/30 transition-colors"
+                    >
+                      <Copy className="h-3.5 w-3.5" /> Copy all
+                    </button>
+                    <button
+                      onClick={handleShare}
+                      className="inline-flex items-center gap-1.5 text-xs text-[#0B0B0F] bg-white border border-[#E5E7EB] rounded-lg px-3 py-1.5 hover:border-[#0B0B0F]/30 transition-colors"
+                    >
+                      <Share2 className="h-3.5 w-3.5" /> Share
+                    </button>
+                  </div>
+                )}
               </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => copyText(formatForShare(result))}
-                  className="inline-flex items-center gap-1.5 text-xs text-[#0B0B0F] bg-white border border-[#E5E7EB] rounded-lg px-3 py-1.5 hover:border-[#0B0B0F]/30 transition-colors"
-                >
-                  <Copy className="h-3.5 w-3.5" /> Copy all
-                </button>
-                <button
-                  onClick={handleShare}
-                  className="inline-flex items-center gap-1.5 text-xs text-[#0B0B0F] bg-white border border-[#E5E7EB] rounded-lg px-3 py-1.5 hover:border-[#0B0B0F]/30 transition-colors"
-                >
-                  <Share2 className="h-3.5 w-3.5" /> Share
-                </button>
-              </div>
-            </div>
+            )}
 
-            <Card
-              title="Simple Explanation"
-              copyable
-              onCopy={() => copyText(result.simple_explanation)}
-            >
-              <p>{result.simple_explanation}</p>
-            </Card>
+            {(result?.simple_explanation || activeSection === 'simple_explanation') && (
+              <Card
+                title="Simple Explanation"
+                copyable={!streaming}
+                streaming={streaming && activeSection === 'simple_explanation'}
+                onCopy={() => copyText(result.simple_explanation)}
+              >
+                <p className="whitespace-pre-wrap">
+                  {result.simple_explanation || <span className="text-[#9CA3AF]">Writing…</span>}
+                  {streaming && activeSection === 'simple_explanation' && (
+                    <span className="inline-block w-[2px] h-4 bg-[#4F46E5] align-middle ml-0.5 animate-pulse" />
+                  )}
+                </p>
+              </Card>
+            )}
 
-            <Card
-              title="Real-Life Analogy"
-              copyable
-              onCopy={() => copyText(result.real_life_analogy)}
-            >
-              <p>{result.real_life_analogy}</p>
-            </Card>
+            {(result?.real_life_analogy || activeSection === 'real_life_analogy') && (
+              <Card
+                title="Real-Life Analogy"
+                copyable={!streaming}
+                streaming={streaming && activeSection === 'real_life_analogy'}
+                onCopy={() => copyText(result.real_life_analogy)}
+              >
+                <p className="whitespace-pre-wrap">
+                  {result.real_life_analogy || <span className="text-[#9CA3AF]">Writing…</span>}
+                  {streaming && activeSection === 'real_life_analogy' && (
+                    <span className="inline-block w-[2px] h-4 bg-[#4F46E5] align-middle ml-0.5 animate-pulse" />
+                  )}
+                </p>
+              </Card>
+            )}
 
-            <Card
-              title="Step-by-Step Breakdown"
-              copyable
-              onCopy={() =>
-                copyText((result.step_by_step || []).map((s, i) => `${i + 1}. ${s}`).join('\n'))
-              }
-            >
-              <ul className="space-y-2.5">
-                {(result.step_by_step || []).map((s, i) => (
-                  <li key={i} className="flex gap-3">
-                    <span className="mt-0.5 text-[12px] font-semibold text-[#4F46E5] min-w-[20px]">
-                      {String(i + 1).padStart(2, '0')}
-                    </span>
-                    <span>{s}</span>
-                  </li>
-                ))}
-              </ul>
-            </Card>
+            {((result?.step_by_step && result.step_by_step.length > 0) || activeSection === 'step_by_step') && (
+              <Card
+                title="Step-by-Step Breakdown"
+                copyable={!streaming}
+                streaming={streaming && activeSection === 'step_by_step'}
+                onCopy={() =>
+                  copyText((result.step_by_step || []).map((s, i) => `${i + 1}. ${s}`).join('\n'))
+                }
+              >
+                <ul className="space-y-2.5">
+                  {(result?.step_by_step || []).map((s, i) => (
+                    <li key={i} className="flex gap-3 fade-in">
+                      <span className="mt-0.5 text-[12px] font-semibold text-[#4F46E5] min-w-[20px]">
+                        {String(i + 1).padStart(2, '0')}
+                      </span>
+                      <span>{s}</span>
+                    </li>
+                  ))}
+                  {streaming && activeSection === 'step_by_step' && (!result?.step_by_step || result.step_by_step.length === 0) && (
+                    <li className="text-[#9CA3AF]">Writing…</li>
+                  )}
+                </ul>
+              </Card>
+            )}
 
-            <Card title="Quick Summary" copyable onCopy={() => copyText(result.summary)}>
-              <p>{result.summary}</p>
-            </Card>
+            {(result?.summary || activeSection === 'summary') && (
+              <Card
+                title="Quick Summary"
+                copyable={!streaming}
+                streaming={streaming && activeSection === 'summary'}
+                onCopy={() => copyText(result.summary)}
+              >
+                <p className="whitespace-pre-wrap">
+                  {result.summary || <span className="text-[#9CA3AF]">Writing…</span>}
+                  {streaming && activeSection === 'summary' && (
+                    <span className="inline-block w-[2px] h-4 bg-[#4F46E5] align-middle ml-0.5 animate-pulse" />
+                  )}
+                </p>
+              </Card>
+            )}
 
-            <Card
-              title="What should you do next?"
-              copyable
-              onCopy={() =>
-                copyText(
-                  (result.action_plan || [])
-                    .map((a, i) => `${i + 1}. ${a.step}${a.time ? ` — ${a.time}` : ''}`)
-                    .join('\n')
-                )
-              }
-            >
-              <ul className="space-y-3">
-                {(result.action_plan || []).map((a, i) => (
-                  <li
-                    key={i}
-                    className="flex items-start gap-3 pb-3 last:pb-0 border-b last:border-b-0 border-[#F1F2F4]"
-                  >
-                    <CheckCircle2 className="h-4 w-4 mt-0.5 text-[#4F46E5] shrink-0" />
-                    <div className="flex-1">
-                      <div className="text-[15px] text-[#0B0B0F]">{a.step}</div>
-                      {a.time && (
-                        <div className="mt-1 inline-flex items-center gap-1 text-[12px] text-[#6B7280]">
-                          <Clock className="h-3 w-3" />
-                          {a.time}
-                        </div>
-                      )}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </Card>
+            {((result?.action_plan && result.action_plan.length > 0) || activeSection === 'action_plan') && (
+              <Card
+                title="What should you do next?"
+                copyable={!streaming}
+                streaming={streaming && activeSection === 'action_plan'}
+                onCopy={() =>
+                  copyText(
+                    (result.action_plan || [])
+                      .map((a, i) => `${i + 1}. ${a.step}${a.time ? ` — ${a.time}` : ''}`)
+                      .join('\n')
+                  )
+                }
+              >
+                <ul className="space-y-3">
+                  {(result?.action_plan || []).map((a, i) => (
+                    <li
+                      key={i}
+                      className="flex items-start gap-3 pb-3 last:pb-0 border-b last:border-b-0 border-[#F1F2F4] fade-in"
+                    >
+                      <CheckCircle2 className="h-4 w-4 mt-0.5 text-[#4F46E5] shrink-0" />
+                      <div className="flex-1">
+                        <div className="text-[15px] text-[#0B0B0F]">{a.step}</div>
+                        {a.time && (
+                          <div className="mt-1 inline-flex items-center gap-1 text-[12px] text-[#6B7280]">
+                            <Clock className="h-3 w-3" />
+                            {a.time}
+                          </div>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                  {streaming && activeSection === 'action_plan' && (!result?.action_plan || result.action_plan.length === 0) && (
+                    <li className="text-[#9CA3AF]">Writing…</li>
+                  )}
+                </ul>
+              </Card>
+            )}
           </div>
         )}
 
         {/* Empty state suggestions */}
-        {!hasResult && !loading && (
+        {!streaming && !hasAnyContent && (
           <div className="mt-10 fade-in">
             <div className="text-xs uppercase tracking-wider text-[#9CA3AF] mb-3 text-center">
               Try one of these
@@ -434,10 +684,7 @@ function App() {
       {/* History sidebar */}
       {sidebarOpen && (
         <div className="fixed inset-0 z-30">
-          <div
-            className="absolute inset-0 bg-black/20"
-            onClick={() => setSidebarOpen(false)}
-          />
+          <div className="absolute inset-0 bg-black/20" onClick={() => setSidebarOpen(false)} />
           <aside className="absolute right-0 top-0 h-full w-full sm:w-[380px] bg-white border-l border-[#E5E7EB] shadow-xl flex flex-col">
             <div className="flex items-center justify-between px-5 h-14 border-b border-[#E5E7EB]">
               <div className="flex items-center gap-2">
@@ -478,10 +725,7 @@ function App() {
                       className="group rounded-xl border border-[#E5E7EB] hover:border-[#0B0B0F]/30 bg-white transition-colors"
                     >
                       <div className="flex items-start gap-2 p-3">
-                        <button
-                          onClick={() => loadFromHistory(h)}
-                          className="flex-1 text-left"
-                        >
+                        <button onClick={() => loadFromHistory(h)} className="flex-1 text-left">
                           <div className="text-[14px] font-medium text-[#0B0B0F] line-clamp-2">
                             {h.topic}
                           </div>
@@ -510,7 +754,7 @@ function App() {
       <footer className="border-t border-[#E5E7EB] bg-white">
         <div className="mx-auto max-w-5xl px-5 sm:px-8 h-14 flex items-center justify-between text-xs text-[#6B7280]">
           <span>BrainMate · Understand anything. Take action.</span>
-          <span>Powered by AI</span>
+          <span>Powered by AI · streaming</span>
         </div>
       </footer>
     </div>

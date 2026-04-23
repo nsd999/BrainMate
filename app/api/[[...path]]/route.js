@@ -1,6 +1,4 @@
 import { NextResponse } from 'next/server';
-import { spawn } from 'child_process';
-import path from 'path';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -11,102 +9,186 @@ const MODE_INSTRUCTIONS = {
   pro: 'Explain to a working professional. Use precise terminology but still keep it clear. Include nuance and practical depth.'
 };
 
-const SYSTEM_PROMPT = `You are BrainMate, an expert AI tutor. Your job is to explain ANY topic with crystal clarity and give the user an actionable plan.
+const SECTION_SYSTEM_PROMPT = `You are BrainMate, an expert AI tutor. Your job is to explain ANY topic with crystal clarity and give the user an actionable plan.
 
-You MUST respond ONLY with a valid JSON object (no markdown, no code fences, no preamble). The JSON MUST match this exact schema:
-{
-  "simple_explanation": string,           // 2-3 easy sentences
-  "real_life_analogy": string,            // a vivid everyday analogy
-  "step_by_step": string[],               // 4-7 short bullets that break the concept down
-  "summary": string,                      // 1-2 sentence TL;DR
-  "action_plan": [                        // 3-5 concrete next steps
-    { "step": string, "time": string }    // time e.g. "10 min", "1 hour", "today"
-  ]
-}
+You MUST respond using EXACTLY this section-delimited format, in this exact order, with NO markdown, NO code fences, NO extra commentary:
+
+<<SIMPLE>>
+A 2-3 sentence very easy explanation.
+<<END>>
+<<ANALOGY>>
+A vivid, everyday real-life analogy (2-3 sentences).
+<<END>>
+<<STEPS>>
+- First bullet
+- Second bullet
+- Third bullet
+- (4-7 total, short, crisp, one per line, each starting with "- ")
+<<END>>
+<<SUMMARY>>
+A 1-2 sentence TL;DR.
+<<END>>
+<<ACTIONS>>
+- [10 min] First concrete action
+- [1 hour] Second concrete action
+- [today] Third concrete action
+- (3-5 total, each line starts with "- [time] " followed by a specific, actionable step)
+<<END>>
 
 Rules:
+- Start with "<<SIMPLE>>" on its own line. Never skip any section. End every section with "<<END>>" on its own line.
 - Avoid jargon; if a difficult word is essential, define it inline in plain English.
-- Friendly, encouraging tone.
-- Keep bullets crisp, no filler.
-- Action plan must be practical and specific to the topic (not generic like "read more").
-- Return ONLY the JSON, nothing else.`;
+- Friendly, encouraging tone. No filler. Action plan must be practical and topic-specific.
+- Output nothing outside of these tagged sections.`;
 
-function runPythonBridge(payload) {
-  return new Promise((resolve, reject) => {
-    const script = path.join(process.cwd(), 'lib', 'llm', 'emergent_llm.py');
-    const child = spawn('/root/.venv/bin/python3', [script], {
-      env: { ...process.env },
-      stdio: ['pipe', 'pipe', 'pipe']
-    });
-
-    let stdout = '';
-    let stderr = '';
-    child.stdout.on('data', (d) => (stdout += d.toString()));
-    child.stderr.on('data', (d) => (stderr += d.toString()));
-
-    child.on('error', (err) => reject(err));
-    child.on('close', (code) => {
-      if (code !== 0) {
-        return reject(new Error(`python exit ${code}: ${stderr || stdout}`));
-      }
-      try {
-        const parsed = JSON.parse(stdout.trim().split('\n').pop());
-        if (parsed.error) return reject(new Error(parsed.error));
-        resolve(parsed.content || '');
-      } catch (e) {
-        reject(new Error(`bad python output: ${stdout}`));
-      }
-    });
-
-    // Stdin payload
-    child.stdin.write(JSON.stringify(payload));
-    child.stdin.end();
-  });
-}
-
-async function callLLM(topic, mode) {
-  const provider = 'openai';
-  const model = process.env.OPENAI_MODEL || 'gpt-4o-mini';
-
+function buildUserPrompt(topic, mode) {
   const modeInstruction = MODE_INSTRUCTIONS[mode] || MODE_INSTRUCTIONS.student;
-  const userPrompt = `Topic: ${topic}
+  return `Topic: ${topic}
 
 Audience mode: ${mode.toUpperCase()}
 ${modeInstruction}
 
-Return ONLY the JSON object described in the system prompt.`;
+Produce ONLY the 5 tagged sections described in the system prompt.`;
+}
 
-  const content = await runPythonBridge({
-    provider,
-    model,
-    system_prompt: SYSTEM_PROMPT,
-    user_prompt: userPrompt,
-    session_id: `brainmate-${Date.now()}`
+function getLLMConfig() {
+  const emergentKey = process.env.EMERGENT_LLM_KEY;
+  const openaiKey = process.env.OPENAI_API_KEY;
+  const preferred = (process.env.LLM_PROVIDER || 'emergent').toLowerCase();
+  const model = process.env.OPENAI_MODEL || 'gpt-4o-mini';
+
+  if (preferred === 'openai' && openaiKey) {
+    return { baseUrl: 'https://api.openai.com/v1', apiKey: openaiKey, model };
+  }
+  if (emergentKey) {
+    return { baseUrl: 'https://integrations.emergentagent.com/llm', apiKey: emergentKey, model };
+  }
+  if (openaiKey) {
+    return { baseUrl: 'https://api.openai.com/v1', apiKey: openaiKey, model };
+  }
+  throw new Error('No LLM key configured (set EMERGENT_LLM_KEY or OPENAI_API_KEY).');
+}
+
+// ----------- Non-streaming path (kept for compatibility) -----------
+
+async function callLLMOnce(topic, mode) {
+  const { baseUrl, apiKey, model } = getLLMConfig();
+  const res = await fetch(`${baseUrl}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      model,
+      temperature: 0.6,
+      stream: false,
+      messages: [
+        { role: 'system', content: SECTION_SYSTEM_PROMPT },
+        { role: 'user', content: buildUserPrompt(topic, mode) }
+      ]
+    })
   });
 
-  let parsed;
-  try {
-    parsed = JSON.parse(content);
-  } catch (e) {
-    const match = content.match(/\{[\s\S]*\}/);
-    if (!match) throw new Error('Model did not return JSON');
-    parsed = JSON.parse(match[0]);
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`LLM error ${res.status}: ${errText}`);
+  }
+  const data = await res.json();
+  const content = data?.choices?.[0]?.message?.content || '';
+  return parseSections(content);
+}
+
+// ----------- Streaming path (SSE passthrough) -----------
+
+async function* streamLLM(topic, mode) {
+  const { baseUrl, apiKey, model } = getLLMConfig();
+  const upstream = await fetch(`${baseUrl}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      model,
+      temperature: 0.6,
+      stream: true,
+      messages: [
+        { role: 'system', content: SECTION_SYSTEM_PROMPT },
+        { role: 'user', content: buildUserPrompt(topic, mode) }
+      ]
+    })
+  });
+
+  if (!upstream.ok || !upstream.body) {
+    const errText = await upstream.text().catch(() => '');
+    throw new Error(`LLM error ${upstream.status}: ${errText}`);
   }
 
+  const reader = upstream.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    let nlIdx;
+    while ((nlIdx = buffer.indexOf('\n')) !== -1) {
+      const line = buffer.slice(0, nlIdx).trim();
+      buffer = buffer.slice(nlIdx + 1);
+      if (!line) continue;
+      if (!line.startsWith('data:')) continue;
+      const payload = line.slice(5).trim();
+      if (payload === '[DONE]') return;
+      try {
+        const json = JSON.parse(payload);
+        const delta = json?.choices?.[0]?.delta?.content;
+        if (typeof delta === 'string' && delta.length) {
+          yield delta;
+        }
+      } catch (e) {
+        // ignore malformed chunk
+      }
+    }
+  }
+}
+
+// ----------- Section parser (from full text) -----------
+
+function parseSections(text) {
+  const grab = (tag) => {
+    const re = new RegExp(`<<${tag}>>([\\s\\S]*?)<<END>>`, 'i');
+    const m = text.match(re);
+    return m ? m[1].trim() : '';
+  };
+  const stepsRaw = grab('STEPS');
+  const actionsRaw = grab('ACTIONS');
+
+  const step_by_step = stepsRaw
+    .split('\n')
+    .map((l) => l.replace(/^\s*[-*]\s*/, '').trim())
+    .filter(Boolean);
+
+  const action_plan = actionsRaw
+    .split('\n')
+    .map((l) => l.replace(/^\s*[-*]\s*/, '').trim())
+    .filter(Boolean)
+    .map((line) => {
+      const m = line.match(/^\[([^\]]+)\]\s*(.*)$/);
+      if (m) return { time: m[1].trim(), step: m[2].trim() };
+      return { time: '', step: line };
+    });
+
   return {
-    simple_explanation: parsed.simple_explanation || '',
-    real_life_analogy: parsed.real_life_analogy || '',
-    step_by_step: Array.isArray(parsed.step_by_step) ? parsed.step_by_step : [],
-    summary: parsed.summary || '',
-    action_plan: Array.isArray(parsed.action_plan)
-      ? parsed.action_plan.map((a) =>
-          typeof a === 'string'
-            ? { step: a, time: '' }
-            : { step: a.step || '', time: a.time || '' }
-        )
-      : []
+    simple_explanation: grab('SIMPLE'),
+    real_life_analogy: grab('ANALOGY'),
+    step_by_step,
+    summary: grab('SUMMARY'),
+    action_plan
   };
 }
+
+// ----------- Handlers -----------
 
 export async function GET(request, { params }) {
   const pathArr = params?.path || [];
@@ -124,17 +206,48 @@ export async function POST(request, { params }) {
   const route = pathArr.join('/');
 
   try {
-    if (route === 'explain') {
+    if (route === 'explain' || route === 'explain/stream') {
       const body = await request.json();
       const topic = (body?.topic || '').toString().trim();
       const mode = (body?.mode || 'student').toString().toLowerCase();
-      if (!topic) {
-        return NextResponse.json({ error: 'topic is required' }, { status: 400 });
+      const wantsStream = route === 'explain/stream' || body?.stream === true;
+
+      if (!topic) return NextResponse.json({ error: 'topic is required' }, { status: 400 });
+      if (topic.length > 500) return NextResponse.json({ error: 'topic too long (max 500 chars)' }, { status: 400 });
+
+      if (wantsStream) {
+        const encoder = new TextEncoder();
+        const stream = new ReadableStream({
+          async start(controller) {
+            const send = (event, data) => {
+              controller.enqueue(
+                encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
+              );
+            };
+            try {
+              send('meta', { topic, mode, started_at: new Date().toISOString() });
+              for await (const delta of streamLLM(topic, mode)) {
+                send('token', { text: delta });
+              }
+              send('done', { finished_at: new Date().toISOString() });
+            } catch (err) {
+              send('error', { message: err?.message || 'stream error' });
+            } finally {
+              controller.close();
+            }
+          }
+        });
+        return new Response(stream, {
+          headers: {
+            'Content-Type': 'text/event-stream; charset=utf-8',
+            'Cache-Control': 'no-cache, no-transform',
+            Connection: 'keep-alive',
+            'X-Accel-Buffering': 'no'
+          }
+        });
       }
-      if (topic.length > 500) {
-        return NextResponse.json({ error: 'topic too long (max 500 chars)' }, { status: 400 });
-      }
-      const result = await callLLM(topic, mode);
+
+      const result = await callLLMOnce(topic, mode);
       return NextResponse.json({
         topic,
         mode,
@@ -146,9 +259,6 @@ export async function POST(request, { params }) {
     return NextResponse.json({ error: 'Not found', route }, { status: 404 });
   } catch (err) {
     console.error('[BrainMate API error]', err);
-    return NextResponse.json(
-      { error: err?.message || 'Internal error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: err?.message || 'Internal error' }, { status: 500 });
   }
 }
