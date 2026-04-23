@@ -101,7 +101,7 @@ async function callLLMOnce(topic, mode) {
 
 // ----------- Streaming path (SSE passthrough) -----------
 
-async function* streamLLM(topic, mode) {
+async function* streamChatCompletion(messages, { temperature = 0.6 } = {}) {
   const { baseUrl, apiKey, model } = getLLMConfig();
   const upstream = await fetch(`${baseUrl}/chat/completions`, {
     method: 'POST',
@@ -111,12 +111,9 @@ async function* streamLLM(topic, mode) {
     },
     body: JSON.stringify({
       model,
-      temperature: 0.6,
+      temperature,
       stream: true,
-      messages: [
-        { role: 'system', content: SECTION_SYSTEM_PROMPT },
-        { role: 'user', content: buildUserPrompt(topic, mode) }
-      ]
+      messages
     })
   });
 
@@ -226,7 +223,11 @@ export async function POST(request, { params }) {
             };
             try {
               send('meta', { topic, mode, started_at: new Date().toISOString() });
-              for await (const delta of streamLLM(topic, mode)) {
+              const messages = [
+                { role: 'system', content: SECTION_SYSTEM_PROMPT },
+                { role: 'user', content: buildUserPrompt(topic, mode) }
+              ];
+              for await (const delta of streamChatCompletion(messages)) {
                 send('token', { text: delta });
               }
               send('done', { finished_at: new Date().toISOString() });
@@ -253,6 +254,74 @@ export async function POST(request, { params }) {
         mode,
         generated_at: new Date().toISOString(),
         ...result
+      });
+    }
+
+    // -------- Follow-up chat (streaming) --------
+    if (route === 'chat/stream') {
+      const body = await request.json();
+      const topic = (body?.topic || '').toString().trim();
+      const mode = (body?.mode || 'student').toString().toLowerCase();
+      const context = (body?.context || '').toString();
+      const messages = Array.isArray(body?.messages) ? body.messages : [];
+
+      if (!topic) return NextResponse.json({ error: 'topic is required' }, { status: 400 });
+      if (messages.length === 0) return NextResponse.json({ error: 'messages is required' }, { status: 400 });
+
+      const modeInstruction = MODE_INSTRUCTIONS[mode] || MODE_INSTRUCTIONS.student;
+      const chatSystem = `You are BrainMate, a friendly AI tutor answering follow-up questions about an explanation you just gave.
+
+Original topic: ${topic}
+Audience: ${mode.toUpperCase()} — ${modeInstruction}
+
+Here is the explanation you previously provided (for context):
+---
+${context || '(no prior explanation context supplied)'}
+---
+
+Rules:
+- Stay on topic. If the user asks something totally unrelated, gently steer them back or answer briefly.
+- Keep answers concise (under ~150 words) unless the user asks for depth.
+- Use plain, friendly language. Define jargon if you use it.
+- NEVER respond with JSON or tagged sections — this is a normal conversation.
+- If helpful, use short bullets, but don't over-format.`;
+
+      // Filter and normalize messages to role/content only
+      const safeMessages = messages
+        .filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
+        .slice(-20) // keep last 20 turns max
+        .map((m) => ({ role: m.role, content: m.content }));
+
+      const fullMessages = [{ role: 'system', content: chatSystem }, ...safeMessages];
+
+      const encoder = new TextEncoder();
+      const stream = new ReadableStream({
+        async start(controller) {
+          const send = (event, data) => {
+            controller.enqueue(
+              encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
+            );
+          };
+          try {
+            send('meta', { started_at: new Date().toISOString() });
+            for await (const delta of streamChatCompletion(fullMessages, { temperature: 0.7 })) {
+              send('token', { text: delta });
+            }
+            send('done', { finished_at: new Date().toISOString() });
+          } catch (err) {
+            send('error', { message: err?.message || 'stream error' });
+          } finally {
+            controller.close();
+          }
+        }
+      });
+      return new Response(stream, {
+        headers: {
+          'Content-Type': 'text/event-stream; charset=utf-8',
+          'Cache-Control': 'no-cache, no-transform',
+          Connection: 'keep-alive',
+          'X-Accel-Buffering': 'no'
+        }
       });
     }
 

@@ -13,7 +13,13 @@ import {
   CheckCircle2,
   ArrowRight,
   Clock,
-  Zap
+  Zap,
+  MessageSquare,
+  Send,
+  Volume2,
+  VolumeX,
+  Pause,
+  Play
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -114,7 +120,7 @@ function parsePartial(buffer) {
   return out;
 }
 
-function Card({ title, children, copyable, onCopy, streaming }) {
+function Card({ title, children, copyable, onCopy, streaming, speakable, isSpeaking, onSpeak, onStopSpeak }) {
   return (
     <div className="fade-in-up rounded-2xl border border-[#E5E7EB] bg-white p-6 sm:p-7 soft-card-shadow">
       <div className="flex items-start justify-between gap-4 mb-3">
@@ -127,16 +133,31 @@ function Card({ title, children, copyable, onCopy, streaming }) {
             </span>
           )}
         </div>
-        {copyable && (
-          <button
-            onClick={onCopy}
-            className="inline-flex items-center gap-1.5 text-xs text-[#6B7280] hover:text-[#0B0B0F] transition-colors"
-            aria-label={`Copy ${title}`}
-          >
-            <Copy className="h-3.5 w-3.5" />
-            Copy
-          </button>
-        )}
+        <div className="flex items-center gap-3 shrink-0">
+          {speakable && (
+            <button
+              onClick={isSpeaking ? onStopSpeak : onSpeak}
+              className={cn(
+                'inline-flex items-center gap-1.5 text-xs transition-colors',
+                isSpeaking ? 'text-[#4F46E5]' : 'text-[#6B7280] hover:text-[#0B0B0F]'
+              )}
+              aria-label={isSpeaking ? `Stop speaking ${title}` : `Listen to ${title}`}
+            >
+              {isSpeaking ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
+              {isSpeaking ? 'Stop' : 'Listen'}
+            </button>
+          )}
+          {copyable && (
+            <button
+              onClick={onCopy}
+              className="inline-flex items-center gap-1.5 text-xs text-[#6B7280] hover:text-[#0B0B0F] transition-colors"
+              aria-label={`Copy ${title}`}
+            >
+              <Copy className="h-3.5 w-3.5" />
+              Copy
+            </button>
+          )}
+        </div>
       </div>
       <div className="text-[15px] leading-relaxed text-[#0B0B0F]">{children}</div>
     </div>
@@ -175,12 +196,95 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const abortRef = useRef(null);
 
+  // Chat state
+  const [chatMessages, setChatMessages] = useState([]); // [{role:'user'|'assistant', content:''}]
+  const [chatInput, setChatInput] = useState('');
+  const [chatStreaming, setChatStreaming] = useState(false);
+  const chatAbortRef = useRef(null);
+  const chatEndRef = useRef(null);
+
+  // Voice state
+  const [speaking, setSpeaking] = useState(false);
+  const [speakingWhat, setSpeakingWhat] = useState(null); // e.g. 'all' | 'summary' | key
+  const [voiceSupported, setVoiceSupported] = useState(false);
+
   useEffect(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) setHistory(JSON.parse(raw));
     } catch (e) {}
   }, []);
+
+  // Voice capability
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      setVoiceSupported(true);
+    }
+    return () => {
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, []);
+
+  // Auto-scroll chat
+  useEffect(() => {
+    if (chatEndRef.current) {
+      chatEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }
+  }, [chatMessages, chatStreaming]);
+
+  // Voice helpers
+  const stopSpeaking = () => {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+    setSpeaking(false);
+    setSpeakingWhat(null);
+  };
+
+  const speak = (text, tag = 'section') => {
+    if (!voiceSupported || !text) return;
+    // Cancel any ongoing
+    window.speechSynthesis.cancel();
+    // Split long text into chunks for reliability (some browsers cut off >200 chars)
+    const chunks = String(text).match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [String(text)];
+    setSpeaking(true);
+    setSpeakingWhat(tag);
+    let idx = 0;
+    const playNext = () => {
+      if (idx >= chunks.length) {
+        setSpeaking(false);
+        setSpeakingWhat(null);
+        return;
+      }
+      const u = new SpeechSynthesisUtterance(chunks[idx].trim());
+      u.rate = 1.0;
+      u.pitch = 1.0;
+      u.volume = 1.0;
+      u.onend = () => {
+        idx += 1;
+        playNext();
+      };
+      u.onerror = () => {
+        setSpeaking(false);
+        setSpeakingWhat(null);
+      };
+      window.speechSynthesis.speak(u);
+    };
+    playNext();
+  };
+
+  const speakAll = (r) => {
+    if (!r) return;
+    const parts = [
+      r.simple_explanation,
+      r.real_life_analogy,
+      ...(r.step_by_step || []),
+      r.summary
+    ].filter(Boolean);
+    speak(parts.join('. '), 'all');
+  };
 
   const persistHistory = (next) => {
     setHistory(next);
@@ -213,6 +317,17 @@ function App() {
         abortRef.current.abort();
       } catch (e) {}
     }
+    // Stop any speaking and reset chat for the new topic
+    stopSpeaking();
+    setChatMessages([]);
+    if (chatAbortRef.current) {
+      try {
+        chatAbortRef.current.abort();
+      } catch (e) {}
+      chatAbortRef.current = null;
+    }
+    setChatStreaming(false);
+
     const ctrl = new AbortController();
     abortRef.current = ctrl;
 
@@ -364,6 +479,126 @@ function App() {
     setLoading(false);
   };
 
+  // -------- Follow-up chat --------
+  const sendChatMessage = async () => {
+    const text = chatInput.trim();
+    if (!text || chatStreaming || !result) return;
+
+    // Cancel any in-flight
+    if (chatAbortRef.current) {
+      try {
+        chatAbortRef.current.abort();
+      } catch (e) {}
+    }
+    const ctrl = new AbortController();
+    chatAbortRef.current = ctrl;
+
+    const userMsg = { role: 'user', content: text };
+    const assistantMsg = { role: 'assistant', content: '' };
+    const nextMsgs = [...chatMessages, userMsg, assistantMsg];
+    setChatMessages(nextMsgs);
+    setChatInput('');
+    setChatStreaming(true);
+
+    // Build context from current explanation
+    const ctx = [
+      result.simple_explanation ? `Simple explanation: ${result.simple_explanation}` : '',
+      result.real_life_analogy ? `Analogy: ${result.real_life_analogy}` : '',
+      result.step_by_step?.length ? `Steps: ${result.step_by_step.join(' | ')}` : '',
+      result.summary ? `Summary: ${result.summary}` : ''
+    ]
+      .filter(Boolean)
+      .join('\n');
+
+    // Messages to send: everything except the empty assistant placeholder
+    const sendMessages = nextMsgs
+      .slice(0, -1)
+      .map((m) => ({ role: m.role, content: m.content }));
+
+    try {
+      const res = await fetch('/api/chat/stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          topic: result.topic,
+          mode: result.mode,
+          context: ctx,
+          messages: sendMessages
+        }),
+        signal: ctrl.signal
+      });
+      if (!res.ok || !res.body) {
+        const errBody = await res.json().catch(() => ({}));
+        throw new Error(errBody?.error || `Request failed (${res.status})`);
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let sseBuf = '';
+      let assistantText = '';
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        sseBuf += decoder.decode(value, { stream: true });
+        let sepIdx;
+        while ((sepIdx = sseBuf.indexOf('\n\n')) !== -1) {
+          const chunk = sseBuf.slice(0, sepIdx);
+          sseBuf = sseBuf.slice(sepIdx + 2);
+          let evt = 'message';
+          let dataLine = '';
+          for (const line of chunk.split('\n')) {
+            if (line.startsWith('event:')) evt = line.slice(6).trim();
+            else if (line.startsWith('data:')) dataLine += line.slice(5).trim();
+          }
+          if (!dataLine) continue;
+          if (evt === 'token') {
+            try {
+              const { text: t } = JSON.parse(dataLine);
+              if (typeof t === 'string') {
+                assistantText += t;
+                setChatMessages((prev) => {
+                  const copy = prev.slice();
+                  const last = copy[copy.length - 1];
+                  if (last && last.role === 'assistant') {
+                    copy[copy.length - 1] = { ...last, content: assistantText };
+                  }
+                  return copy;
+                });
+              }
+            } catch (e) {}
+          } else if (evt === 'error') {
+            try {
+              const { message } = JSON.parse(dataLine);
+              throw new Error(message || 'Chat error');
+            } catch (e) {
+              throw e;
+            }
+          }
+        }
+      }
+    } catch (err) {
+      if (err?.name !== 'AbortError') {
+        toast.error(err?.message || 'Chat failed');
+        // Replace empty assistant bubble with error marker
+        setChatMessages((prev) => {
+          const copy = prev.slice();
+          const last = copy[copy.length - 1];
+          if (last && last.role === 'assistant' && !last.content) {
+            copy[copy.length - 1] = {
+              ...last,
+              content: '⚠️ Could not generate a reply. Try again.'
+            };
+          }
+          return copy;
+        });
+      }
+    } finally {
+      setChatStreaming(false);
+      chatAbortRef.current = null;
+    }
+  };
+
   const handleShare = async () => {
     if (!result) return;
     const text = formatForShare(result);
@@ -385,6 +620,8 @@ function App() {
   };
 
   const loadFromHistory = (entry) => {
+    stopSpeaking();
+    setChatMessages([]);
     setTopic(entry.topic);
     setMode(entry.mode);
     setResult(entry.payload);
@@ -521,6 +758,28 @@ function App() {
                 </div>
                 {hasAnyContent && !streaming && (
                   <div className="flex items-center gap-2 shrink-0 ml-3">
+                    {voiceSupported && (
+                      <button
+                        onClick={() => (speaking && speakingWhat === 'all' ? stopSpeaking() : speakAll(result))}
+                        className={cn(
+                          'inline-flex items-center gap-1.5 text-xs bg-white border rounded-lg px-3 py-1.5 transition-colors',
+                          speaking && speakingWhat === 'all'
+                            ? 'text-[#4F46E5] border-[#C7D2FE] bg-[#EEF2FF]'
+                            : 'text-[#0B0B0F] border-[#E5E7EB] hover:border-[#0B0B0F]/30'
+                        )}
+                        aria-label={speaking && speakingWhat === 'all' ? 'Stop speaking' : 'Listen to all'}
+                      >
+                        {speaking && speakingWhat === 'all' ? (
+                          <>
+                            <VolumeX className="h-3.5 w-3.5" /> Stop
+                          </>
+                        ) : (
+                          <>
+                            <Volume2 className="h-3.5 w-3.5" /> Listen
+                          </>
+                        )}
+                      </button>
+                    )}
                     <button
                       onClick={() => copyText(formatForShare(result))}
                       className="inline-flex items-center gap-1.5 text-xs text-[#0B0B0F] bg-white border border-[#E5E7EB] rounded-lg px-3 py-1.5 hover:border-[#0B0B0F]/30 transition-colors"
@@ -544,6 +803,10 @@ function App() {
                 copyable={!streaming}
                 streaming={streaming && activeSection === 'simple_explanation'}
                 onCopy={() => copyText(result.simple_explanation)}
+                speakable={voiceSupported && !streaming && !!result?.simple_explanation}
+                isSpeaking={speaking && speakingWhat === 'simple_explanation'}
+                onSpeak={() => speak(result.simple_explanation, 'simple_explanation')}
+                onStopSpeak={stopSpeaking}
               >
                 <p className="whitespace-pre-wrap">
                   {result.simple_explanation || <span className="text-[#9CA3AF]">Writing…</span>}
@@ -560,6 +823,10 @@ function App() {
                 copyable={!streaming}
                 streaming={streaming && activeSection === 'real_life_analogy'}
                 onCopy={() => copyText(result.real_life_analogy)}
+                speakable={voiceSupported && !streaming && !!result?.real_life_analogy}
+                isSpeaking={speaking && speakingWhat === 'real_life_analogy'}
+                onSpeak={() => speak(result.real_life_analogy, 'real_life_analogy')}
+                onStopSpeak={stopSpeaking}
               >
                 <p className="whitespace-pre-wrap">
                   {result.real_life_analogy || <span className="text-[#9CA3AF]">Writing…</span>}
@@ -601,6 +868,10 @@ function App() {
                 copyable={!streaming}
                 streaming={streaming && activeSection === 'summary'}
                 onCopy={() => copyText(result.summary)}
+                speakable={voiceSupported && !streaming && !!result?.summary}
+                isSpeaking={speaking && speakingWhat === 'summary'}
+                onSpeak={() => speak(result.summary, 'summary')}
+                onStopSpeak={stopSpeaking}
               >
                 <p className="whitespace-pre-wrap">
                   {result.summary || <span className="text-[#9CA3AF]">Writing…</span>}
@@ -647,6 +918,110 @@ function App() {
                   )}
                 </ul>
               </Card>
+            )}
+
+            {/* Follow-up chat */}
+            {hasAnyContent && !streaming && (
+              <div className="mt-4 rounded-2xl border border-[#E5E7EB] bg-white soft-card-shadow fade-in-up overflow-hidden">
+                <div className="flex items-center gap-2 px-6 pt-5 pb-3 border-b border-[#F1F2F4]">
+                  <MessageSquare className="h-4 w-4 text-[#4F46E5]" />
+                  <h3 className="text-[15px] font-semibold tracking-tight text-[#0B0B0F]">
+                    Ask a follow-up
+                  </h3>
+                  <span className="text-xs text-[#6B7280]">
+                    about "{result.topic}"
+                  </span>
+                </div>
+
+                {chatMessages.length > 0 && (
+                  <div className="px-6 py-4 space-y-4 max-h-[480px] overflow-y-auto">
+                    {chatMessages.map((m, i) => (
+                      <div
+                        key={i}
+                        className={cn(
+                          'flex',
+                          m.role === 'user' ? 'justify-end' : 'justify-start'
+                        )}
+                      >
+                        <div
+                          className={cn(
+                            'max-w-[85%] rounded-2xl px-4 py-2.5 text-[14px] leading-relaxed whitespace-pre-wrap',
+                            m.role === 'user'
+                              ? 'bg-[#0B0B0F] text-white rounded-br-md'
+                              : 'bg-[#F1F2F4] text-[#0B0B0F] rounded-bl-md'
+                          )}
+                        >
+                          {m.content || (
+                            <span className="inline-flex items-center gap-2 text-[#6B7280]">
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              Thinking…
+                            </span>
+                          )}
+                          {m.role === 'assistant' &&
+                            chatStreaming &&
+                            i === chatMessages.length - 1 &&
+                            m.content && (
+                              <span className="inline-block w-[2px] h-4 bg-[#4F46E5] align-middle ml-0.5 animate-pulse" />
+                            )}
+                        </div>
+                      </div>
+                    ))}
+                    <div ref={chatEndRef} />
+                  </div>
+                )}
+
+                <div className="px-4 sm:px-5 py-3 border-t border-[#F1F2F4] bg-[#FAFAFB]">
+                  <div className="flex items-end gap-2">
+                    <Textarea
+                      value={chatInput}
+                      onChange={(e) => setChatInput(e.target.value)}
+                      placeholder={
+                        chatMessages.length === 0
+                          ? 'Ask anything about this explanation…'
+                          : 'Continue the conversation…'
+                      }
+                      className="min-h-[44px] max-h-[120px] resize-none bg-white border border-[#E5E7EB] rounded-xl text-[14px] focus-visible:ring-1 focus-visible:ring-[#4F46E5]"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          sendChatMessage();
+                        }
+                      }}
+                      disabled={chatStreaming}
+                    />
+                    <Button
+                      onClick={sendChatMessage}
+                      disabled={chatStreaming || !chatInput.trim()}
+                      className="bg-[#4F46E5] hover:bg-[#4338CA] text-white rounded-xl h-[44px] w-[44px] p-0 shrink-0"
+                      aria-label="Send"
+                    >
+                      {chatStreaming ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Send className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                  {chatMessages.length === 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {[
+                        'Give me a concrete example',
+                        'Why does this matter?',
+                        'What are common mistakes?',
+                        'Explain it even simpler'
+                      ].map((s) => (
+                        <button
+                          key={s}
+                          onClick={() => setChatInput(s)}
+                          className="text-[12px] px-2.5 py-1 rounded-full bg-white border border-[#E5E7EB] text-[#6B7280] hover:text-[#0B0B0F] hover:border-[#0B0B0F]/30 transition-colors"
+                        >
+                          {s}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
             )}
           </div>
         )}
