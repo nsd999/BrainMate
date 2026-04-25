@@ -41,12 +41,17 @@ Rules:
 - Friendly, encouraging tone. No filler. Action plan must be practical and topic-specific.
 - Output nothing outside of these tagged sections.`;
 
-function buildUserPrompt(topic, mode) {
+function buildUserPrompt(topic, mode, language) {
   const modeInstruction = MODE_INSTRUCTIONS[mode] || MODE_INSTRUCTIONS.student;
+  const lang = (language || 'English').toString();
+  const langLine =
+    lang.toLowerCase() === 'english'
+      ? ''
+      : `\n\nIMPORTANT: Write all output (including bullets and time labels) in ${lang}. Translate the action time labels too. Keep the section tags (<<SIMPLE>>, <<END>>, etc.) in English exactly as specified.`;
   return `Topic: ${topic}
 
 Audience mode: ${mode.toUpperCase()}
-${modeInstruction}
+${modeInstruction}${langLine}
 
 Produce ONLY the 5 tagged sections described in the system prompt.`;
 }
@@ -71,7 +76,7 @@ function getLLMConfig() {
 
 // ----------- Non-streaming path (kept for compatibility) -----------
 
-async function callLLMOnce(topic, mode) {
+async function callLLMOnce(topic, mode, language) {
   const { baseUrl, apiKey, model } = getLLMConfig();
   const res = await fetch(`${baseUrl}/chat/completions`, {
     method: 'POST',
@@ -85,7 +90,7 @@ async function callLLMOnce(topic, mode) {
       stream: false,
       messages: [
         { role: 'system', content: SECTION_SYSTEM_PROMPT },
-        { role: 'user', content: buildUserPrompt(topic, mode) }
+        { role: 'user', content: buildUserPrompt(topic, mode, language) }
       ]
     })
   });
@@ -207,6 +212,7 @@ export async function POST(request, { params }) {
       const body = await request.json();
       const topic = (body?.topic || '').toString().trim();
       const mode = (body?.mode || 'student').toString().toLowerCase();
+      const language = (body?.language || 'English').toString();
       const wantsStream = route === 'explain/stream' || body?.stream === true;
 
       if (!topic) return NextResponse.json({ error: 'topic is required' }, { status: 400 });
@@ -222,10 +228,10 @@ export async function POST(request, { params }) {
               );
             };
             try {
-              send('meta', { topic, mode, started_at: new Date().toISOString() });
+              send('meta', { topic, mode, language, started_at: new Date().toISOString() });
               const messages = [
                 { role: 'system', content: SECTION_SYSTEM_PROMPT },
-                { role: 'user', content: buildUserPrompt(topic, mode) }
+                { role: 'user', content: buildUserPrompt(topic, mode, language) }
               ];
               for await (const delta of streamChatCompletion(messages)) {
                 send('token', { text: delta });
@@ -248,10 +254,11 @@ export async function POST(request, { params }) {
         });
       }
 
-      const result = await callLLMOnce(topic, mode);
+      const result = await callLLMOnce(topic, mode, language);
       return NextResponse.json({
         topic,
         mode,
+        language,
         generated_at: new Date().toISOString(),
         ...result
       });
@@ -262,6 +269,7 @@ export async function POST(request, { params }) {
       const body = await request.json();
       const topic = (body?.topic || '').toString().trim();
       const mode = (body?.mode || 'student').toString().toLowerCase();
+      const language = (body?.language || 'English').toString();
       const context = (body?.context || '').toString();
       const messages = Array.isArray(body?.messages) ? body.messages : [];
 
@@ -269,10 +277,14 @@ export async function POST(request, { params }) {
       if (messages.length === 0) return NextResponse.json({ error: 'messages is required' }, { status: 400 });
 
       const modeInstruction = MODE_INSTRUCTIONS[mode] || MODE_INSTRUCTIONS.student;
+      const langLine =
+        language && language.toLowerCase() !== 'english'
+          ? `\nIMPORTANT: Respond in ${language}.`
+          : '';
       const chatSystem = `You are BrainMate, a friendly AI tutor answering follow-up questions about an explanation you just gave.
 
 Original topic: ${topic}
-Audience: ${mode.toUpperCase()} — ${modeInstruction}
+Audience: ${mode.toUpperCase()} — ${modeInstruction}${langLine}
 
 Here is the explanation you previously provided (for context):
 ---

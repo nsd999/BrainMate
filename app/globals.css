@@ -4,6 +4,7 @@
 
 @layer base {
   :root {
+    /* shadcn tokens (kept for shadcn components) */
     --background: 0 0% 100%;
     --foreground: 240 10% 4%;
     --card: 0 0% 100%;
@@ -24,6 +25,60 @@
     --input: 220 13% 91%;
     --ring: 243 75% 59%;
     --radius: 0.75rem;
+
+    /* BrainMate semantic tokens (light) */
+    --bm-bg: #F8F9FB;
+    --bm-card: #FFFFFF;
+    --bm-text: #0B0B0F;
+    --bm-text-soft: #6B7280;
+    --bm-text-faint: #9CA3AF;
+    --bm-border: #E5E7EB;
+    --bm-subtle: #F1F2F4;
+    --bm-pill-active: #0B0B0F;
+    --bm-pill-active-text: #FFFFFF;
+    --bm-accent: #4F46E5;
+    --bm-accent-hover: #4338CA;
+    --bm-accent-soft: #EEF2FF;
+    --bm-accent-soft-border: #E0E7FF;
+    --bm-overlay: rgba(0, 0, 0, 0.20);
+  }
+
+  .dark {
+    --background: 240 6% 6%;
+    --foreground: 0 0% 96%;
+    --card: 240 6% 9%;
+    --card-foreground: 0 0% 96%;
+    --popover: 240 6% 9%;
+    --popover-foreground: 0 0% 96%;
+    --primary: 243 75% 65%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 5% 15%;
+    --secondary-foreground: 0 0% 96%;
+    --muted: 240 5% 15%;
+    --muted-foreground: 220 9% 65%;
+    --accent: 240 5% 15%;
+    --accent-foreground: 0 0% 96%;
+    --destructive: 0 70% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 240 5% 18%;
+    --input: 240 5% 18%;
+    --ring: 243 75% 65%;
+
+    /* BrainMate dark tokens */
+    --bm-bg: #0A0A0C;
+    --bm-card: #15151A;
+    --bm-text: #F4F4F5;
+    --bm-text-soft: #A1A1AA;
+    --bm-text-faint: #71717A;
+    --bm-border: #27272A;
+    --bm-subtle: #1F1F23;
+    --bm-pill-active: #FFFFFF;
+    --bm-pill-active-text: #0B0B0F;
+    --bm-accent: #6366F1;
+    --bm-accent-hover: #818CF8;
+    --bm-accent-soft: #1E1B4B;
+    --bm-accent-soft-border: #312E81;
+    --bm-overlay: rgba(0, 0, 0, 0.55);
   }
 }
 
@@ -32,9 +87,12 @@
     @apply border-border;
   }
   body {
+    background: var(--bm-bg);
+    color: var(--bm-text);
     font-family: var(--font-inter), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    transition: background-color 0.2s ease, color 0.2s ease;
   }
 }
 
@@ -47,6 +105,9 @@
   }
   .soft-card-shadow {
     box-shadow: 0 1px 2px rgba(11, 11, 15, 0.04), 0 4px 12px rgba(11, 11, 15, 0.04);
+  }
+  .dark .soft-card-shadow {
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 12px rgba(0, 0, 0, 0.3);
   }
 }
 
@@ -62,5 +123,5 @@
 
 /* Subtle scrollbar */
 ::-webkit-scrollbar { width: 10px; height: 10px; }
-::-webkit-scrollbar-thumb { background: #E5E7EB; border-radius: 8px; }
-::-webkit-scrollbar-thumb:hover { background: #D1D5DB; }
+::-webkit-scrollbar-thumb { background: var(--bm-border); border-radius: 8px; }
+::-webkit-scrollbar-thumb:hover { background: var(--bm-text-faint); }

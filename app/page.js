@@ -19,7 +19,13 @@ import {
   Volume2,
   VolumeX,
   Pause,
-  Play
+  Play,
+  Sun,
+  Moon,
+  Languages,
+  Download,
+  FileText,
+  FileDown
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -32,7 +38,24 @@ const MODES = [
   { id: 'pro', label: 'Pro Mode', hint: 'Precise & nuanced' }
 ];
 
+const LANGUAGES = [
+  { code: 'English', label: 'English', flag: '🇺🇸' },
+  { code: 'Spanish', label: 'Español', flag: '🇪🇸' },
+  { code: 'French', label: 'Français', flag: '🇫🇷' },
+  { code: 'German', label: 'Deutsch', flag: '🇩🇪' },
+  { code: 'Italian', label: 'Italiano', flag: '🇮🇹' },
+  { code: 'Portuguese', label: 'Português', flag: '🇵🇹' },
+  { code: 'Hindi', label: 'हिन्दी', flag: '🇮🇳' },
+  { code: 'Mandarin Chinese', label: '中文', flag: '🇨🇳' },
+  { code: 'Japanese', label: '日本語', flag: '🇯🇵' },
+  { code: 'Korean', label: '한국어', flag: '🇰🇷' },
+  { code: 'Arabic', label: 'العربية', flag: '🇸🇦' },
+  { code: 'Russian', label: 'Русский', flag: '🇷🇺' }
+];
+
 const STORAGE_KEY = 'brainmate.history.v1';
+const THEME_KEY = 'brainmate.theme';
+const LANG_KEY = 'brainmate.language';
 
 const copyText = async (text) => {
   try {
@@ -122,13 +145,13 @@ function parsePartial(buffer) {
 
 function Card({ title, children, copyable, onCopy, streaming, speakable, isSpeaking, onSpeak, onStopSpeak }) {
   return (
-    <div className="fade-in-up rounded-2xl border border-[#E5E7EB] bg-white p-6 sm:p-7 soft-card-shadow">
+    <div className="fade-in-up rounded-2xl border border-[var(--bm-border)] bg-[var(--bm-card)] p-6 sm:p-7 soft-card-shadow">
       <div className="flex items-start justify-between gap-4 mb-3">
         <div className="flex items-center gap-2">
-          <h3 className="text-[15px] font-semibold tracking-tight text-[#0B0B0F]">{title}</h3>
+          <h3 className="text-[15px] font-semibold tracking-tight text-[var(--bm-text)]">{title}</h3>
           {streaming && (
-            <span className="inline-flex items-center gap-1 text-[11px] text-[#4F46E5] bg-[#EEF2FF] border border-[#E0E7FF] rounded-full px-2 py-0.5">
-              <span className="h-1.5 w-1.5 rounded-full bg-[#4F46E5] animate-pulse" />
+            <span className="inline-flex items-center gap-1 text-[11px] text-[var(--bm-accent)] bg-[var(--bm-accent-soft)] border border-[var(--bm-accent-soft-border)] rounded-full px-2 py-0.5">
+              <span className="h-1.5 w-1.5 rounded-full bg-[var(--bm-accent)] animate-pulse" />
               writing
             </span>
           )}
@@ -139,7 +162,7 @@ function Card({ title, children, copyable, onCopy, streaming, speakable, isSpeak
               onClick={isSpeaking ? onStopSpeak : onSpeak}
               className={cn(
                 'inline-flex items-center gap-1.5 text-xs transition-colors',
-                isSpeaking ? 'text-[#4F46E5]' : 'text-[#6B7280] hover:text-[#0B0B0F]'
+                isSpeaking ? 'text-[var(--bm-accent)]' : 'text-[var(--bm-text-soft)] hover:text-[var(--bm-text)]'
               )}
               aria-label={isSpeaking ? `Stop speaking ${title}` : `Listen to ${title}`}
             >
@@ -150,7 +173,7 @@ function Card({ title, children, copyable, onCopy, streaming, speakable, isSpeak
           {copyable && (
             <button
               onClick={onCopy}
-              className="inline-flex items-center gap-1.5 text-xs text-[#6B7280] hover:text-[#0B0B0F] transition-colors"
+              className="inline-flex items-center gap-1.5 text-xs text-[var(--bm-text-soft)] hover:text-[var(--bm-text)] transition-colors"
               aria-label={`Copy ${title}`}
             >
               <Copy className="h-3.5 w-3.5" />
@@ -159,7 +182,7 @@ function Card({ title, children, copyable, onCopy, streaming, speakable, isSpeak
           )}
         </div>
       </div>
-      <div className="text-[15px] leading-relaxed text-[#0B0B0F]">{children}</div>
+      <div className="text-[15px] leading-relaxed text-[var(--bm-text)]">{children}</div>
     </div>
   );
 }
@@ -171,13 +194,13 @@ function ModePill({ active, children, hint, onClick }) {
       className={cn(
         'group relative px-4 py-2 rounded-xl text-sm font-medium transition-all border',
         active
-          ? 'bg-[#0B0B0F] text-white border-[#0B0B0F] shadow-sm'
-          : 'bg-white text-[#0B0B0F] border-[#E5E7EB] hover:border-[#0B0B0F]/30'
+          ? 'bg-[var(--bm-pill-active)] text-[var(--bm-pill-active-text)] border-[var(--bm-pill-active)] shadow-sm'
+          : 'bg-[var(--bm-card)] text-[var(--bm-text)] border-[var(--bm-border)] hover:border-[var(--bm-text)]/30'
       )}
     >
       <span>{children}</span>
       <span
-        className={cn('ml-2 text-[11px]', active ? 'text-white/70' : 'text-[#6B7280]')}
+        className={cn('ml-2 text-[11px]', active ? 'text-[var(--bm-pill-active-text)]/70' : 'text-[var(--bm-text-soft)]')}
       >
         · {hint}
       </span>
@@ -208,6 +231,12 @@ function App() {
   const [speakingWhat, setSpeakingWhat] = useState(null); // e.g. 'all' | 'summary' | key
   const [voiceSupported, setVoiceSupported] = useState(false);
 
+  // Theme + language + export state
+  const [theme, setTheme] = useState('light');
+  const [language, setLanguage] = useState('English');
+  const [langOpen, setLangOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
+
   useEffect(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
@@ -226,6 +255,41 @@ function App() {
       }
     };
   }, []);
+
+  // Theme + language load
+  useEffect(() => {
+    try {
+      const t =
+        localStorage.getItem(THEME_KEY) ||
+        (typeof window !== 'undefined' &&
+        window.matchMedia('(prefers-color-scheme: dark)').matches
+          ? 'dark'
+          : 'light');
+      setTheme(t);
+      if (typeof document !== 'undefined') {
+        document.documentElement.classList.toggle('dark', t === 'dark');
+      }
+      const l = localStorage.getItem(LANG_KEY);
+      if (l) setLanguage(l);
+    } catch (e) {}
+  }, []);
+
+  const toggleTheme = () => {
+    const next = theme === 'dark' ? 'light' : 'dark';
+    setTheme(next);
+    try {
+      localStorage.setItem(THEME_KEY, next);
+      document.documentElement.classList.toggle('dark', next === 'dark');
+    } catch (e) {}
+  };
+
+  const changeLanguage = (code) => {
+    setLanguage(code);
+    setLangOpen(false);
+    try {
+      localStorage.setItem(LANG_KEY, code);
+    } catch (e) {}
+  };
 
   // Auto-scroll chat
   useEffect(() => {
@@ -375,7 +439,7 @@ function App() {
       const res = await fetch('/api/explain/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic: t, mode: m }),
+        body: JSON.stringify({ topic: t, mode: m, language }),
         signal: ctrl.signal
       });
 
@@ -434,6 +498,7 @@ function App() {
       const finalResult = {
         topic: t,
         mode: m,
+        language,
         generated_at: new Date().toISOString(),
         simple_explanation: finalPartial.simple_explanation,
         real_life_analogy: finalPartial.real_life_analogy,
@@ -522,6 +587,7 @@ function App() {
         body: JSON.stringify({
           topic: result.topic,
           mode: result.mode,
+          language: result.language || language,
           context: ctx,
           messages: sendMessages
         }),
@@ -599,6 +665,142 @@ function App() {
     }
   };
 
+  // -------- Export --------
+  const buildMarkdown = (r) => {
+    if (!r) return '';
+    const steps = (r.step_by_step || []).map((s, i) => `${i + 1}. ${s}`).join('\n');
+    const plan = (r.action_plan || [])
+      .map((a, i) => `${i + 1}. **${a.step}**${a.time ? ` _(${a.time})_` : ''}`)
+      .join('\n');
+    return [
+      `# BrainMate — ${r.topic}`,
+      ``,
+      `_Mode: ${r.mode}${r.language ? ` · Language: ${r.language}` : ''}${r.generated_at ? ` · Generated: ${new Date(r.generated_at).toLocaleString()}` : ''}_`,
+      ``,
+      `## Simple Explanation`,
+      r.simple_explanation || '',
+      ``,
+      `## Real-Life Analogy`,
+      r.real_life_analogy || '',
+      ``,
+      `## Step-by-Step Breakdown`,
+      steps,
+      ``,
+      `## Quick Summary`,
+      r.summary || '',
+      ``,
+      `## What should you do next?`,
+      plan,
+      ``,
+      `---`,
+      `Generated by BrainMate`
+    ].join('\n');
+  };
+
+  const downloadBlob = (filename, content, mime) => {
+    const blob = new Blob([content], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
+  const safeFilename = (s) =>
+    (s || 'brainmate')
+      .replace(/[^\p{L}\p{N}_-]+/gu, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 60) || 'brainmate';
+
+  const exportMarkdown = () => {
+    if (!result) return;
+    const md = buildMarkdown(result);
+    downloadBlob(`brainmate-${safeFilename(result.topic)}.md`, md, 'text/markdown;charset=utf-8');
+    toast.success('Markdown downloaded');
+    setExportOpen(false);
+  };
+
+  const exportPDF = async () => {
+    if (!result) return;
+    try {
+      const { jsPDF } = await import('jspdf');
+      const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+      const pageW = doc.internal.pageSize.getWidth();
+      const pageH = doc.internal.pageSize.getHeight();
+      const marginX = 56;
+      const maxW = pageW - marginX * 2;
+      let y = 64;
+
+      const ensureSpace = (h) => {
+        if (y + h > pageH - 56) {
+          doc.addPage();
+          y = 64;
+        }
+      };
+
+      const writeWrapped = (text, opts = {}) => {
+        const { size = 11, bold = false, color = [11, 11, 15], gap = 4, indent = 0 } = opts;
+        doc.setFont('helvetica', bold ? 'bold' : 'normal');
+        doc.setFontSize(size);
+        doc.setTextColor(color[0], color[1], color[2]);
+        const lines = doc.splitTextToSize(text || '', maxW - indent);
+        const lh = size * 1.35;
+        for (const line of lines) {
+          ensureSpace(lh);
+          doc.text(line, marginX + indent, y);
+          y += lh;
+        }
+        y += gap;
+      };
+
+      // Title
+      writeWrapped(`BrainMate — ${result.topic || ''}`, { size: 18, bold: true, gap: 6 });
+      const meta =
+        `Mode: ${result.mode || ''}` +
+        (result.language ? ` · Language: ${result.language}` : '') +
+        (result.generated_at ? ` · ${new Date(result.generated_at).toLocaleString()}` : '');
+      writeWrapped(meta, { size: 9, color: [107, 114, 128], gap: 14 });
+
+      const writeSection = (heading, body) => {
+        writeWrapped(heading, { size: 13, bold: true, gap: 4 });
+        writeWrapped(body, { size: 11, gap: 12 });
+      };
+
+      writeSection('Simple Explanation', result.simple_explanation || '');
+      writeSection('Real-Life Analogy', result.real_life_analogy || '');
+
+      writeWrapped('Step-by-Step Breakdown', { size: 13, bold: true, gap: 4 });
+      (result.step_by_step || []).forEach((s, i) => {
+        writeWrapped(`${i + 1}. ${s}`, { size: 11, gap: 2, indent: 12 });
+      });
+      y += 8;
+
+      writeSection('Quick Summary', result.summary || '');
+
+      writeWrapped('What should you do next?', { size: 13, bold: true, gap: 4 });
+      (result.action_plan || []).forEach((a, i) => {
+        const line = `${i + 1}. ${a.step}${a.time ? `  (${a.time})` : ''}`;
+        writeWrapped(line, { size: 11, gap: 2, indent: 12 });
+      });
+      y += 12;
+      writeWrapped('— Generated by BrainMate', {
+        size: 9,
+        color: [156, 163, 175],
+        gap: 0
+      });
+
+      doc.save(`brainmate-${safeFilename(result.topic)}.pdf`);
+      toast.success('PDF downloaded');
+      setExportOpen(false);
+    } catch (e) {
+      console.error(e);
+      toast.error('Could not export PDF');
+    }
+  };
+
   const handleShare = async () => {
     if (!result) return;
     const text = formatForShare(result);
@@ -649,23 +851,84 @@ function App() {
       (result.action_plan && result.action_plan.length));
 
   return (
-    <div className="min-h-screen bg-[#F8F9FB]">
+    <div className="min-h-screen bg-[var(--bm-bg)]">
       {/* Top bar */}
-      <header className="sticky top-0 z-20 bg-[#F8F9FB]/80 backdrop-blur border-b border-[#E5E7EB]">
+      <header className="sticky top-0 z-20 bg-[var(--bm-bg)]/80 backdrop-blur border-b border-[var(--bm-border)]">
         <div className="mx-auto max-w-5xl px-5 sm:px-8 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="h-7 w-7 rounded-lg bg-[#0B0B0F] flex items-center justify-center">
-              <Brain className="h-4 w-4 text-white" />
+            <div className="h-7 w-7 rounded-lg bg-[var(--bm-text)] flex items-center justify-center">
+              <Brain className="h-4 w-4 text-[var(--bm-card)]" />
             </div>
             <span className="font-semibold tracking-tight text-[15px]">BrainMate</span>
           </div>
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="inline-flex items-center gap-2 text-sm text-[#0B0B0F] hover:text-[#4F46E5] transition-colors"
-          >
-            <History className="h-4 w-4" />
-            History {history.length > 0 && <span className="text-[#6B7280]">({history.length})</span>}
-          </button>
+          <div className="flex items-center gap-3 sm:gap-4">
+            {/* Language picker */}
+            <div className="relative">
+              <button
+                onClick={() => setLangOpen((o) => !o)}
+                className="inline-flex items-center gap-1.5 text-sm text-[var(--bm-text)] hover:text-[var(--bm-accent)] transition-colors"
+                aria-label="Change language"
+              >
+                <Languages className="h-4 w-4" />
+                <span className="hidden sm:inline text-[13px]">
+                  {LANGUAGES.find((l) => l.code === language)?.label || language}
+                </span>
+                <span className="sm:hidden text-[15px]">
+                  {LANGUAGES.find((l) => l.code === language)?.flag || '🌐'}
+                </span>
+              </button>
+              {langOpen && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setLangOpen(false)} />
+                  <div className="absolute right-0 mt-2 w-56 rounded-xl border border-[var(--bm-border)] bg-[var(--bm-card)] shadow-lg overflow-hidden z-20">
+                    <div className="max-h-80 overflow-y-auto py-1">
+                      {LANGUAGES.map((l) => (
+                        <button
+                          key={l.code}
+                          onClick={() => changeLanguage(l.code)}
+                          className={cn(
+                            'w-full flex items-center gap-3 px-3 py-2 text-sm text-left transition-colors',
+                            language === l.code
+                              ? 'bg-[var(--bm-subtle)] text-[var(--bm-text)]'
+                              : 'text-[var(--bm-text)] hover:bg-[var(--bm-subtle)]'
+                          )}
+                        >
+                          <span className="text-base leading-none">{l.flag}</span>
+                          <span className="flex-1">{l.label}</span>
+                          {language === l.code && (
+                            <CheckCircle2 className="h-3.5 w-3.5 text-[var(--bm-accent)]" />
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Theme toggle */}
+            <button
+              onClick={toggleTheme}
+              className="inline-flex items-center justify-center h-8 w-8 rounded-lg border border-[var(--bm-border)] bg-[var(--bm-card)] text-[var(--bm-text)] hover:border-[var(--bm-text)]/30 transition-colors"
+              aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+            >
+              {theme === 'dark' ? (
+                <Sun className="h-4 w-4" />
+              ) : (
+                <Moon className="h-4 w-4" />
+              )}
+            </button>
+
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="inline-flex items-center gap-2 text-sm text-[var(--bm-text)] hover:text-[var(--bm-accent)] transition-colors"
+            >
+              <History className="h-4 w-4" />
+              <span className="hidden sm:inline">
+                History {history.length > 0 && <span className="text-[var(--bm-text-soft)]">({history.length})</span>}
+              </span>
+            </button>
+          </div>
         </div>
       </header>
 
@@ -673,25 +936,25 @@ function App() {
       <main className="mx-auto max-w-3xl px-5 sm:px-8 pt-14 sm:pt-20 pb-24">
         {/* Hero */}
         <div className="text-center mb-10 sm:mb-12 fade-in">
-          <div className="inline-flex items-center gap-2 text-xs text-[#6B7280] bg-white border border-[#E5E7EB] rounded-full px-3 py-1 mb-6">
-            <Sparkles className="h-3.5 w-3.5 text-[#4F46E5]" />
+          <div className="inline-flex items-center gap-2 text-xs text-[var(--bm-text-soft)] bg-[var(--bm-card)] border border-[var(--bm-border)] rounded-full px-3 py-1 mb-6">
+            <Sparkles className="h-3.5 w-3.5 text-[var(--bm-accent)]" />
             AI-powered clarity · streaming live
           </div>
-          <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-[#0B0B0F]">
+          <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-[var(--bm-text)]">
             BrainMate
           </h1>
-          <p className="mt-3 text-[#6B7280] text-base sm:text-lg">
+          <p className="mt-3 text-[var(--bm-text-soft)] text-base sm:text-lg">
             Understand anything. Take action.
           </p>
         </div>
 
         {/* Input card */}
-        <div className="rounded-2xl border border-[#E5E7EB] bg-white p-4 sm:p-5 soft-card-shadow fade-in">
+        <div className="rounded-2xl border border-[var(--bm-border)] bg-[var(--bm-card)] p-4 sm:p-5 soft-card-shadow fade-in">
           <Textarea
             value={topic}
             onChange={(e) => setTopic(e.target.value)}
             placeholder="What do you want to understand? e.g. How does a black hole work?"
-            className="min-h-[96px] resize-none border-0 shadow-none focus-visible:ring-0 text-[16px] placeholder:text-[#9CA3AF] px-1"
+            className="min-h-[96px] resize-none border-0 shadow-none focus-visible:ring-0 text-[16px] placeholder:text-[var(--bm-text-faint)] px-1"
             onKeyDown={(e) => {
               if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
                 e.preventDefault();
@@ -699,7 +962,7 @@ function App() {
               }
             }}
           />
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mt-3 pt-3 border-t border-[#F1F2F4]">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mt-3 pt-3 border-t border-[var(--bm-subtle)]">
             <div className="flex flex-wrap items-center gap-2">
               {MODES.map((m) => (
                 <ModePill
@@ -716,7 +979,7 @@ function App() {
               <Button
                 onClick={handleStop}
                 variant="outline"
-                className="rounded-xl h-10 px-5 font-medium border-[#E5E7EB]"
+                className="rounded-xl h-10 px-5 font-medium border-[var(--bm-border)]"
               >
                 <X className="h-4 w-4 mr-2" />
                 Stop
@@ -725,7 +988,7 @@ function App() {
               <Button
                 onClick={() => handleExplain()}
                 disabled={loading || !topic.trim()}
-                className="bg-[#4F46E5] hover:bg-[#4338CA] text-white rounded-xl h-10 px-5 font-medium shadow-sm"
+                className="bg-[var(--bm-accent)] hover:bg-[var(--bm-accent-hover)] text-white rounded-xl h-10 px-5 font-medium shadow-sm"
               >
                 {loading ? (
                   <>
@@ -741,7 +1004,7 @@ function App() {
               </Button>
             )}
           </div>
-          <div className="mt-2 text-[11px] text-[#9CA3AF] px-1 flex items-center gap-1.5">
+          <div className="mt-2 text-[11px] text-[var(--bm-text-faint)] px-1 flex items-center gap-1.5">
             <Zap className="h-3 w-3" />
             Tip: press ⌘/Ctrl + Enter to explain · streams in real time
           </div>
@@ -753,8 +1016,8 @@ function App() {
             {/* Actions bar */}
             {result && (
               <div className="flex items-center justify-between fade-in">
-                <div className="text-sm text-[#6B7280] truncate">
-                  <span className="text-[#0B0B0F] font-medium">{result.topic}</span> · {result.mode} mode
+                <div className="text-sm text-[var(--bm-text-soft)] truncate">
+                  <span className="text-[var(--bm-text)] font-medium">{result.topic}</span> · {result.mode} mode
                 </div>
                 {hasAnyContent && !streaming && (
                   <div className="flex items-center gap-2 shrink-0 ml-3">
@@ -762,10 +1025,10 @@ function App() {
                       <button
                         onClick={() => (speaking && speakingWhat === 'all' ? stopSpeaking() : speakAll(result))}
                         className={cn(
-                          'inline-flex items-center gap-1.5 text-xs bg-white border rounded-lg px-3 py-1.5 transition-colors',
+                          'inline-flex items-center gap-1.5 text-xs bg-[var(--bm-card)] border rounded-lg px-3 py-1.5 transition-colors',
                           speaking && speakingWhat === 'all'
-                            ? 'text-[#4F46E5] border-[#C7D2FE] bg-[#EEF2FF]'
-                            : 'text-[#0B0B0F] border-[#E5E7EB] hover:border-[#0B0B0F]/30'
+                            ? 'text-[var(--bm-accent)] border-[var(--bm-accent-soft-border)] bg-[var(--bm-accent-soft)]'
+                            : 'text-[var(--bm-text)] border-[var(--bm-border)] hover:border-[var(--bm-text)]/30'
                         )}
                         aria-label={speaking && speakingWhat === 'all' ? 'Stop speaking' : 'Listen to all'}
                       >
@@ -782,13 +1045,45 @@ function App() {
                     )}
                     <button
                       onClick={() => copyText(formatForShare(result))}
-                      className="inline-flex items-center gap-1.5 text-xs text-[#0B0B0F] bg-white border border-[#E5E7EB] rounded-lg px-3 py-1.5 hover:border-[#0B0B0F]/30 transition-colors"
+                      className="inline-flex items-center gap-1.5 text-xs text-[var(--bm-text)] bg-[var(--bm-card)] border border-[var(--bm-border)] rounded-lg px-3 py-1.5 hover:border-[var(--bm-text)]/30 transition-colors"
                     >
                       <Copy className="h-3.5 w-3.5" /> Copy all
                     </button>
+
+                    {/* Export menu */}
+                    <div className="relative">
+                      <button
+                        onClick={() => setExportOpen((o) => !o)}
+                        className="inline-flex items-center gap-1.5 text-xs text-[var(--bm-text)] bg-[var(--bm-card)] border border-[var(--bm-border)] rounded-lg px-3 py-1.5 hover:border-[var(--bm-text)]/30 transition-colors"
+                      >
+                        <Download className="h-3.5 w-3.5" /> Export
+                      </button>
+                      {exportOpen && (
+                        <>
+                          <div className="fixed inset-0 z-10" onClick={() => setExportOpen(false)} />
+                          <div className="absolute right-0 mt-2 w-48 rounded-xl border border-[var(--bm-border)] bg-[var(--bm-card)] shadow-lg overflow-hidden z-20 py-1">
+                            <button
+                              onClick={exportMarkdown}
+                              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left text-[var(--bm-text)] hover:bg-[var(--bm-subtle)] transition-colors"
+                            >
+                              <FileText className="h-4 w-4 text-[var(--bm-text-soft)]" />
+                              Markdown (.md)
+                            </button>
+                            <button
+                              onClick={exportPDF}
+                              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left text-[var(--bm-text)] hover:bg-[var(--bm-subtle)] transition-colors"
+                            >
+                              <FileDown className="h-4 w-4 text-[var(--bm-text-soft)]" />
+                              PDF (.pdf)
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+
                     <button
                       onClick={handleShare}
-                      className="inline-flex items-center gap-1.5 text-xs text-[#0B0B0F] bg-white border border-[#E5E7EB] rounded-lg px-3 py-1.5 hover:border-[#0B0B0F]/30 transition-colors"
+                      className="inline-flex items-center gap-1.5 text-xs text-[var(--bm-text)] bg-[var(--bm-card)] border border-[var(--bm-border)] rounded-lg px-3 py-1.5 hover:border-[var(--bm-text)]/30 transition-colors"
                     >
                       <Share2 className="h-3.5 w-3.5" /> Share
                     </button>
@@ -809,9 +1104,9 @@ function App() {
                 onStopSpeak={stopSpeaking}
               >
                 <p className="whitespace-pre-wrap">
-                  {result.simple_explanation || <span className="text-[#9CA3AF]">Writing…</span>}
+                  {result.simple_explanation || <span className="text-[var(--bm-text-faint)]">Writing…</span>}
                   {streaming && activeSection === 'simple_explanation' && (
-                    <span className="inline-block w-[2px] h-4 bg-[#4F46E5] align-middle ml-0.5 animate-pulse" />
+                    <span className="inline-block w-[2px] h-4 bg-[var(--bm-accent)] align-middle ml-0.5 animate-pulse" />
                   )}
                 </p>
               </Card>
@@ -829,9 +1124,9 @@ function App() {
                 onStopSpeak={stopSpeaking}
               >
                 <p className="whitespace-pre-wrap">
-                  {result.real_life_analogy || <span className="text-[#9CA3AF]">Writing…</span>}
+                  {result.real_life_analogy || <span className="text-[var(--bm-text-faint)]">Writing…</span>}
                   {streaming && activeSection === 'real_life_analogy' && (
-                    <span className="inline-block w-[2px] h-4 bg-[#4F46E5] align-middle ml-0.5 animate-pulse" />
+                    <span className="inline-block w-[2px] h-4 bg-[var(--bm-accent)] align-middle ml-0.5 animate-pulse" />
                   )}
                 </p>
               </Card>
@@ -849,14 +1144,14 @@ function App() {
                 <ul className="space-y-2.5">
                   {(result?.step_by_step || []).map((s, i) => (
                     <li key={i} className="flex gap-3 fade-in">
-                      <span className="mt-0.5 text-[12px] font-semibold text-[#4F46E5] min-w-[20px]">
+                      <span className="mt-0.5 text-[12px] font-semibold text-[var(--bm-accent)] min-w-[20px]">
                         {String(i + 1).padStart(2, '0')}
                       </span>
                       <span>{s}</span>
                     </li>
                   ))}
                   {streaming && activeSection === 'step_by_step' && (!result?.step_by_step || result.step_by_step.length === 0) && (
-                    <li className="text-[#9CA3AF]">Writing…</li>
+                    <li className="text-[var(--bm-text-faint)]">Writing…</li>
                   )}
                 </ul>
               </Card>
@@ -874,9 +1169,9 @@ function App() {
                 onStopSpeak={stopSpeaking}
               >
                 <p className="whitespace-pre-wrap">
-                  {result.summary || <span className="text-[#9CA3AF]">Writing…</span>}
+                  {result.summary || <span className="text-[var(--bm-text-faint)]">Writing…</span>}
                   {streaming && activeSection === 'summary' && (
-                    <span className="inline-block w-[2px] h-4 bg-[#4F46E5] align-middle ml-0.5 animate-pulse" />
+                    <span className="inline-block w-[2px] h-4 bg-[var(--bm-accent)] align-middle ml-0.5 animate-pulse" />
                   )}
                 </p>
               </Card>
@@ -899,13 +1194,13 @@ function App() {
                   {(result?.action_plan || []).map((a, i) => (
                     <li
                       key={i}
-                      className="flex items-start gap-3 pb-3 last:pb-0 border-b last:border-b-0 border-[#F1F2F4] fade-in"
+                      className="flex items-start gap-3 pb-3 last:pb-0 border-b last:border-b-0 border-[var(--bm-subtle)] fade-in"
                     >
-                      <CheckCircle2 className="h-4 w-4 mt-0.5 text-[#4F46E5] shrink-0" />
+                      <CheckCircle2 className="h-4 w-4 mt-0.5 text-[var(--bm-accent)] shrink-0" />
                       <div className="flex-1">
-                        <div className="text-[15px] text-[#0B0B0F]">{a.step}</div>
+                        <div className="text-[15px] text-[var(--bm-text)]">{a.step}</div>
                         {a.time && (
-                          <div className="mt-1 inline-flex items-center gap-1 text-[12px] text-[#6B7280]">
+                          <div className="mt-1 inline-flex items-center gap-1 text-[12px] text-[var(--bm-text-soft)]">
                             <Clock className="h-3 w-3" />
                             {a.time}
                           </div>
@@ -914,7 +1209,7 @@ function App() {
                     </li>
                   ))}
                   {streaming && activeSection === 'action_plan' && (!result?.action_plan || result.action_plan.length === 0) && (
-                    <li className="text-[#9CA3AF]">Writing…</li>
+                    <li className="text-[var(--bm-text-faint)]">Writing…</li>
                   )}
                 </ul>
               </Card>
@@ -922,13 +1217,13 @@ function App() {
 
             {/* Follow-up chat */}
             {hasAnyContent && !streaming && (
-              <div className="mt-4 rounded-2xl border border-[#E5E7EB] bg-white soft-card-shadow fade-in-up overflow-hidden">
-                <div className="flex items-center gap-2 px-6 pt-5 pb-3 border-b border-[#F1F2F4]">
-                  <MessageSquare className="h-4 w-4 text-[#4F46E5]" />
-                  <h3 className="text-[15px] font-semibold tracking-tight text-[#0B0B0F]">
+              <div className="mt-4 rounded-2xl border border-[var(--bm-border)] bg-[var(--bm-card)] soft-card-shadow fade-in-up overflow-hidden">
+                <div className="flex items-center gap-2 px-6 pt-5 pb-3 border-b border-[var(--bm-subtle)]">
+                  <MessageSquare className="h-4 w-4 text-[var(--bm-accent)]" />
+                  <h3 className="text-[15px] font-semibold tracking-tight text-[var(--bm-text)]">
                     Ask a follow-up
                   </h3>
-                  <span className="text-xs text-[#6B7280]">
+                  <span className="text-xs text-[var(--bm-text-soft)]">
                     about "{result.topic}"
                   </span>
                 </div>
@@ -947,12 +1242,12 @@ function App() {
                           className={cn(
                             'max-w-[85%] rounded-2xl px-4 py-2.5 text-[14px] leading-relaxed whitespace-pre-wrap',
                             m.role === 'user'
-                              ? 'bg-[#0B0B0F] text-white rounded-br-md'
-                              : 'bg-[#F1F2F4] text-[#0B0B0F] rounded-bl-md'
+                              ? 'bg-[var(--bm-pill-active)] text-[var(--bm-pill-active-text)] rounded-br-md'
+                              : 'bg-[var(--bm-subtle)] text-[var(--bm-text)] rounded-bl-md'
                           )}
                         >
                           {m.content || (
-                            <span className="inline-flex items-center gap-2 text-[#6B7280]">
+                            <span className="inline-flex items-center gap-2 text-[var(--bm-text-soft)]">
                               <Loader2 className="h-3.5 w-3.5 animate-spin" />
                               Thinking…
                             </span>
@@ -961,7 +1256,7 @@ function App() {
                             chatStreaming &&
                             i === chatMessages.length - 1 &&
                             m.content && (
-                              <span className="inline-block w-[2px] h-4 bg-[#4F46E5] align-middle ml-0.5 animate-pulse" />
+                              <span className="inline-block w-[2px] h-4 bg-[var(--bm-accent)] align-middle ml-0.5 animate-pulse" />
                             )}
                         </div>
                       </div>
@@ -970,7 +1265,7 @@ function App() {
                   </div>
                 )}
 
-                <div className="px-4 sm:px-5 py-3 border-t border-[#F1F2F4] bg-[#FAFAFB]">
+                <div className="px-4 sm:px-5 py-3 border-t border-[var(--bm-subtle)] bg-[var(--bm-subtle)]">
                   <div className="flex items-end gap-2">
                     <Textarea
                       value={chatInput}
@@ -980,7 +1275,7 @@ function App() {
                           ? 'Ask anything about this explanation…'
                           : 'Continue the conversation…'
                       }
-                      className="min-h-[44px] max-h-[120px] resize-none bg-white border border-[#E5E7EB] rounded-xl text-[14px] focus-visible:ring-1 focus-visible:ring-[#4F46E5]"
+                      className="min-h-[44px] max-h-[120px] resize-none bg-[var(--bm-card)] border border-[var(--bm-border)] rounded-xl text-[14px] focus-visible:ring-1 focus-visible:ring-[var(--bm-accent)]"
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' && !e.shiftKey) {
                           e.preventDefault();
@@ -992,7 +1287,7 @@ function App() {
                     <Button
                       onClick={sendChatMessage}
                       disabled={chatStreaming || !chatInput.trim()}
-                      className="bg-[#4F46E5] hover:bg-[#4338CA] text-white rounded-xl h-[44px] w-[44px] p-0 shrink-0"
+                      className="bg-[var(--bm-accent)] hover:bg-[var(--bm-accent-hover)] text-white rounded-xl h-[44px] w-[44px] p-0 shrink-0"
                       aria-label="Send"
                     >
                       {chatStreaming ? (
@@ -1013,7 +1308,7 @@ function App() {
                         <button
                           key={s}
                           onClick={() => setChatInput(s)}
-                          className="text-[12px] px-2.5 py-1 rounded-full bg-white border border-[#E5E7EB] text-[#6B7280] hover:text-[#0B0B0F] hover:border-[#0B0B0F]/30 transition-colors"
+                          className="text-[12px] px-2.5 py-1 rounded-full bg-[var(--bm-card)] border border-[var(--bm-border)] text-[var(--bm-text-soft)] hover:text-[var(--bm-text)] hover:border-[var(--bm-text)]/30 transition-colors"
                         >
                           {s}
                         </button>
@@ -1029,7 +1324,7 @@ function App() {
         {/* Empty state suggestions */}
         {!streaming && !hasAnyContent && (
           <div className="mt-10 fade-in">
-            <div className="text-xs uppercase tracking-wider text-[#9CA3AF] mb-3 text-center">
+            <div className="text-xs uppercase tracking-wider text-[var(--bm-text-faint)] mb-3 text-center">
               Try one of these
             </div>
             <div className="flex flex-wrap justify-center gap-2">
@@ -1046,7 +1341,7 @@ function App() {
                     setTopic(s);
                     handleExplain(s, mode);
                   }}
-                  className="text-sm px-3 py-1.5 rounded-full bg-white border border-[#E5E7EB] text-[#0B0B0F] hover:border-[#0B0B0F]/30 transition-colors"
+                  className="text-sm px-3 py-1.5 rounded-full bg-[var(--bm-card)] border border-[var(--bm-border)] text-[var(--bm-text)] hover:border-[var(--bm-text)]/30 transition-colors"
                 >
                   {s}
                 </button>
@@ -1059,26 +1354,26 @@ function App() {
       {/* History sidebar */}
       {sidebarOpen && (
         <div className="fixed inset-0 z-30">
-          <div className="absolute inset-0 bg-black/20" onClick={() => setSidebarOpen(false)} />
-          <aside className="absolute right-0 top-0 h-full w-full sm:w-[380px] bg-white border-l border-[#E5E7EB] shadow-xl flex flex-col">
-            <div className="flex items-center justify-between px-5 h-14 border-b border-[#E5E7EB]">
+          <div className="absolute inset-0 bg-[var(--bm-overlay)]" onClick={() => setSidebarOpen(false)} />
+          <aside className="absolute right-0 top-0 h-full w-full sm:w-[380px] bg-[var(--bm-card)] border-l border-[var(--bm-border)] shadow-xl flex flex-col">
+            <div className="flex items-center justify-between px-5 h-14 border-b border-[var(--bm-border)]">
               <div className="flex items-center gap-2">
                 <History className="h-4 w-4" />
                 <span className="font-semibold text-[15px]">History</span>
-                <span className="text-xs text-[#6B7280]">({history.length})</span>
+                <span className="text-xs text-[var(--bm-text-soft)]">({history.length})</span>
               </div>
               <div className="flex items-center gap-2">
                 {history.length > 0 && (
                   <button
                     onClick={clearHistory}
-                    className="text-xs text-[#6B7280] hover:text-[#0B0B0F]"
+                    className="text-xs text-[var(--bm-text-soft)] hover:text-[var(--bm-text)]"
                   >
                     Clear all
                   </button>
                 )}
                 <button
                   onClick={() => setSidebarOpen(false)}
-                  className="h-8 w-8 inline-flex items-center justify-center rounded-lg hover:bg-[#F1F2F4]"
+                  className="h-8 w-8 inline-flex items-center justify-center rounded-lg hover:bg-[var(--bm-subtle)]"
                   aria-label="Close"
                 >
                   <X className="h-4 w-4" />
@@ -1087,7 +1382,7 @@ function App() {
             </div>
             <div className="flex-1 overflow-y-auto p-3">
               {history.length === 0 ? (
-                <div className="text-center text-sm text-[#6B7280] py-20">
+                <div className="text-center text-sm text-[var(--bm-text-soft)] py-20">
                   No history yet.
                   <br />
                   Your past explanations will appear here.
@@ -1097,20 +1392,20 @@ function App() {
                   {history.map((h) => (
                     <li
                       key={h.id}
-                      className="group rounded-xl border border-[#E5E7EB] hover:border-[#0B0B0F]/30 bg-white transition-colors"
+                      className="group rounded-xl border border-[var(--bm-border)] hover:border-[var(--bm-text)]/30 bg-[var(--bm-card)] transition-colors"
                     >
                       <div className="flex items-start gap-2 p-3">
                         <button onClick={() => loadFromHistory(h)} className="flex-1 text-left">
-                          <div className="text-[14px] font-medium text-[#0B0B0F] line-clamp-2">
+                          <div className="text-[14px] font-medium text-[var(--bm-text)] line-clamp-2">
                             {h.topic}
                           </div>
-                          <div className="mt-1 text-[11px] text-[#6B7280]">
+                          <div className="mt-1 text-[11px] text-[var(--bm-text-soft)]">
                             {new Date(h.created_at).toLocaleString()} · {h.mode} mode
                           </div>
                         </button>
                         <button
                           onClick={() => deleteFromHistory(h.id)}
-                          className="h-7 w-7 inline-flex items-center justify-center rounded-md text-[#9CA3AF] hover:text-[#0B0B0F] hover:bg-[#F1F2F4] opacity-0 group-hover:opacity-100 transition-opacity"
+                          className="h-7 w-7 inline-flex items-center justify-center rounded-md text-[var(--bm-text-faint)] hover:text-[var(--bm-text)] hover:bg-[var(--bm-subtle)] opacity-0 group-hover:opacity-100 transition-opacity"
                           aria-label="Delete"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
@@ -1126,8 +1421,8 @@ function App() {
       )}
 
       {/* Footer */}
-      <footer className="border-t border-[#E5E7EB] bg-white">
-        <div className="mx-auto max-w-5xl px-5 sm:px-8 h-14 flex items-center justify-between text-xs text-[#6B7280]">
+      <footer className="border-t border-[var(--bm-border)] bg-[var(--bm-card)]">
+        <div className="mx-auto max-w-5xl px-5 sm:px-8 h-14 flex items-center justify-between text-xs text-[var(--bm-text-soft)]">
           <span>BrainMate · Understand anything. Take action.</span>
           <span>Powered by AI · streaming</span>
         </div>

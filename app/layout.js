@@ -14,10 +14,25 @@ export const metadata = {
     'An AI-powered clarity and learning assistant. Explain any topic simply and get a step-by-step action plan.'
 };
 
+// Inline theme bootstrap to prevent flash of incorrect theme on load.
+const themeBootstrap = `
+(function(){
+  try {
+    var t = localStorage.getItem('brainmate.theme');
+    var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var dark = t ? t === 'dark' : prefersDark;
+    if (dark) document.documentElement.classList.add('dark');
+  } catch(e){}
+})();
+`;
+
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" className={inter.variable}>
-      <body className="min-h-screen bg-[#F8F9FB] text-[#0B0B0F] antialiased font-sans">
+    <html lang="en" className={inter.variable} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeBootstrap }} />
+      </head>
+      <body className="min-h-screen bg-[var(--bm-bg)] text-[var(--bm-text)] antialiased font-sans">
         {children}
         <Toaster position="top-center" />
       </body>
