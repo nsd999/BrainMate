@@ -25,7 +25,8 @@ import {
   Languages,
   Download,
   FileText,
-  FileDown
+  FileDown,
+  Star
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -277,6 +278,7 @@ function App() {
             topic: it.topic,
             mode: it.mode,
             created_at: it.created_at,
+            favorite: !!it.favorite,
             payload: it.payload
           }));
           setHistory(items);
@@ -904,6 +906,33 @@ function App() {
       );
     } catch (e) {
       console.warn('Delete history error:', e);
+    }
+  };
+
+  const toggleFavorite = async (id) => {
+    let nextFav = false;
+    // Optimistic + re-sort (favorites first)
+    setHistory((prev) => {
+      const updated = prev.map((h) => {
+        if (h.id === id) {
+          nextFav = !h.favorite;
+          return { ...h, favorite: nextFav };
+        }
+        return h;
+      });
+      const favs = updated.filter((h) => h.favorite);
+      const rest = updated.filter((h) => !h.favorite);
+      return [...favs, ...rest];
+    });
+    if (!userId) return;
+    try {
+      await fetch(`/api/history/${encodeURIComponent(id)}/favorite`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId, favorite: nextFav })
+      });
+    } catch (e) {
+      console.warn('Favorite error:', e);
     }
   };
 
@@ -1557,24 +1586,58 @@ function App() {
                   {history.map((h) => (
                     <li
                       key={h.id}
-                      className="group rounded-xl border border-[var(--bm-border)] hover:border-[var(--bm-text)]/30 bg-[var(--bm-card)] transition-colors"
+                      className={cn(
+                        'group rounded-xl border bg-[var(--bm-card)] transition-colors',
+                        h.favorite
+                          ? 'border-[var(--bm-accent-soft-border)] bg-[var(--bm-accent-soft)]/30'
+                          : 'border-[var(--bm-border)] hover:border-[var(--bm-text)]/30'
+                      )}
                     >
                       <div className="flex items-start gap-2 p-3">
                         <button onClick={() => loadFromHistory(h)} className="flex-1 text-left">
-                          <div className="text-[14px] font-medium text-[var(--bm-text)] line-clamp-2">
-                            {h.topic}
+                          <div className="flex items-center gap-1.5 text-[14px] font-medium text-[var(--bm-text)]">
+                            {h.favorite && (
+                              <Star className="h-3.5 w-3.5 text-[var(--bm-accent)] fill-[var(--bm-accent)] shrink-0" />
+                            )}
+                            <span className="line-clamp-2 flex-1">{h.topic}</span>
                           </div>
                           <div className="mt-1 text-[11px] text-[var(--bm-text-soft)]">
                             {new Date(h.created_at).toLocaleString()} · {h.mode} mode
                           </div>
                         </button>
-                        <button
-                          onClick={() => deleteFromHistory(h.id)}
-                          className="h-7 w-7 inline-flex items-center justify-center rounded-md text-[var(--bm-text-faint)] hover:text-[var(--bm-text)] hover:bg-[var(--bm-subtle)] opacity-0 group-hover:opacity-100 transition-opacity"
-                          aria-label="Delete"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
+                        <div className="flex flex-col gap-1 shrink-0">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleFavorite(h.id);
+                            }}
+                            className={cn(
+                              'h-7 w-7 inline-flex items-center justify-center rounded-md transition-colors',
+                              h.favorite
+                                ? 'text-[var(--bm-accent)] opacity-100'
+                                : 'text-[var(--bm-text-faint)] hover:text-[var(--bm-accent)] hover:bg-[var(--bm-subtle)] opacity-60 group-hover:opacity-100'
+                            )}
+                            aria-label={h.favorite ? 'Unfavorite' : 'Favorite'}
+                            title={h.favorite ? 'Remove from favorites' : 'Add to favorites'}
+                          >
+                            <Star
+                              className={cn(
+                                'h-3.5 w-3.5',
+                                h.favorite && 'fill-[var(--bm-accent)]'
+                              )}
+                            />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteFromHistory(h.id);
+                            }}
+                            className="h-7 w-7 inline-flex items-center justify-center rounded-md text-[var(--bm-text-faint)] hover:text-[var(--bm-text)] hover:bg-[var(--bm-subtle)] opacity-0 group-hover:opacity-100 transition-opacity"
+                            aria-label="Delete"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
                       </div>
                     </li>
                   ))}

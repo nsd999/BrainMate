@@ -214,7 +214,7 @@ export async function GET(request, { params }) {
       const col = await getHistoryCollection();
       const items = await col
         .find({ user_id: userId }, { projection: { _id: 0 } })
-        .sort({ created_at: -1 })
+        .sort({ favorite: -1, favorited_at: -1, created_at: -1 })
         .limit(limit)
         .toArray();
       return NextResponse.json({ user_id: userId, count: items.length, items });
@@ -413,12 +413,33 @@ Rules:
         topic: payload?.topic || '',
         mode: payload?.mode || 'student',
         language: payload?.language || 'English',
+        favorite: !!body?.favorite,
         created_at: body?.created_at || new Date().toISOString(),
         payload
       };
       const col = await getHistoryCollection();
       await col.updateOne({ id }, { $set: doc }, { upsert: true });
       return NextResponse.json({ ok: true, id, entry: doc });
+    }
+
+    // -------- Toggle favorite on a history entry --------
+    if (pathArr[0] === 'history' && pathArr[1] && pathArr[2] === 'favorite') {
+      const id = pathArr[1];
+      const body = await request.json();
+      const userId = (body?.user_id || '').toString().trim();
+      const favorite = !!body?.favorite;
+      if (!userId) {
+        return NextResponse.json({ error: 'user_id is required' }, { status: 400 });
+      }
+      const col = await getHistoryCollection();
+      const r = await col.updateOne(
+        { id, user_id: userId },
+        { $set: { favorite, favorited_at: favorite ? new Date().toISOString() : null } }
+      );
+      if (r.matchedCount === 0) {
+        return NextResponse.json({ error: 'Not found' }, { status: 404 });
+      }
+      return NextResponse.json({ ok: true, id, favorite });
     }
 
     return NextResponse.json({ error: 'Not found', route }, { status: 404 });
