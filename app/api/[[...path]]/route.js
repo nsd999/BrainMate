@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server';
+import { v4 as uuidv4 } from 'uuid';
+import { getHistoryCollection } from '@/lib/mongo';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -200,7 +202,65 @@ export async function GET(request, { params }) {
     return NextResponse.json({ ok: true, service: 'BrainMate API', time: new Date().toISOString() });
   }
 
+  // GET /api/history?user_id=xxx&limit=50
+  if (route === 'history') {
+    try {
+      const url = new URL(request.url);
+      const userId = (url.searchParams.get('user_id') || '').trim();
+      const limit = Math.min(parseInt(url.searchParams.get('limit') || '50', 10), 200);
+      if (!userId) {
+        return NextResponse.json({ error: 'user_id is required' }, { status: 400 });
+      }
+      const col = await getHistoryCollection();
+      const items = await col
+        .find({ user_id: userId }, { projection: { _id: 0 } })
+        .sort({ created_at: -1 })
+        .limit(limit)
+        .toArray();
+      return NextResponse.json({ user_id: userId, count: items.length, items });
+    } catch (err) {
+      console.error('[history GET error]', err);
+      return NextResponse.json({ error: err?.message || 'Failed to load history' }, { status: 500 });
+    }
+  }
+
   return NextResponse.json({ error: 'Not found', route }, { status: 404 });
+}
+
+export async function DELETE(request, { params }) {
+  const pathArr = params?.path || [];
+  const route = pathArr.join('/');
+
+  try {
+    const url = new URL(request.url);
+    const userId = (url.searchParams.get('user_id') || '').trim();
+    if (!userId) {
+      return NextResponse.json({ error: 'user_id is required' }, { status: 400 });
+    }
+
+    // DELETE /api/history → clear all for user
+    if (route === 'history') {
+      const col = await getHistoryCollection();
+      const r = await col.deleteMany({ user_id: userId });
+      return NextResponse.json({ ok: true, deleted: r.deletedCount });
+    }
+
+    // DELETE /api/history/:id → delete single entry for user
+    if (pathArr[0] === 'history' && pathArr[1]) {
+      const id = pathArr[1];
+      const col = await getHistoryCollection();
+      const r = await col.deleteOne({ user_id: userId, id });
+      if (r.deletedCount === 0) {
+        return NextResponse.json({ error: 'Not found' }, { status: 404 });
+      }
+      return NextResponse.json({ ok: true });
+    }
+
+    return NextResponse.json({ error: 'Not found', route }, { status: 404 });
+  } catch (err) {
+    console.error('[DELETE error]', err);
+    return NextResponse.json({ error: err?.message || 'Internal error' }, { status: 500 });
+  }
 }
 
 export async function POST(request, { params }) {
@@ -337,7 +397,32 @@ Rules:
       });
     }
 
+    // -------- Save history (cross-device via user_id) --------
+    if (route === 'history') {
+      const body = await request.json();
+      const userId = (body?.user_id || '').toString().trim();
+      const payload = body?.payload || null;
+      if (!userId) return NextResponse.json({ error: 'user_id is required' }, { status: 400 });
+      if (!payload || typeof payload !== 'object') {
+        return NextResponse.json({ error: 'payload is required' }, { status: 400 });
+      }
+      const id = (body?.id || uuidv4()).toString();
+      const doc = {
+        id,
+        user_id: userId,
+        topic: payload?.topic || '',
+        mode: payload?.mode || 'student',
+        language: payload?.language || 'English',
+        created_at: body?.created_at || new Date().toISOString(),
+        payload
+      };
+      const col = await getHistoryCollection();
+      await col.updateOne({ id }, { $set: doc }, { upsert: true });
+      return NextResponse.json({ ok: true, id, entry: doc });
+    }
+
     return NextResponse.json({ error: 'Not found', route }, { status: 404 });
+
   } catch (err) {
     console.error('[BrainMate API error]', err);
     return NextResponse.json({ error: err?.message || 'Internal error' }, { status: 500 });

@@ -237,12 +237,60 @@ function App() {
   const [langOpen, setLangOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
 
+  // Cross-device user identity (anonymous "sync code")
+  const [userId, setUserId] = useState('');
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [showSyncCode, setShowSyncCode] = useState(false);
+  const [syncCodeInput, setSyncCodeInput] = useState('');
+
+  // Initialize / generate user_id, then load history from API
   useEffect(() => {
+    let uid = '';
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) setHistory(JSON.parse(raw));
-    } catch (e) {}
+      uid = localStorage.getItem('brainmate.user_id') || '';
+      if (!uid) {
+        // Use crypto.randomUUID if available, fallback to manual
+        uid =
+          (typeof crypto !== 'undefined' && crypto.randomUUID && crypto.randomUUID()) ||
+          `${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
+        localStorage.setItem('brainmate.user_id', uid);
+      }
+    } catch (e) {
+      uid = `${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
+    }
+    setUserId(uid);
   }, []);
+
+  // Load history when userId changes
+  useEffect(() => {
+    if (!userId) return;
+    let cancelled = false;
+    (async () => {
+      setHistoryLoading(true);
+      try {
+        const res = await fetch(`/api/history?user_id=${encodeURIComponent(userId)}`);
+        const data = await res.json();
+        if (!cancelled && Array.isArray(data?.items)) {
+          // Map server entries to existing UI shape
+          const items = data.items.map((it) => ({
+            id: it.id,
+            topic: it.topic,
+            mode: it.mode,
+            created_at: it.created_at,
+            payload: it.payload
+          }));
+          setHistory(items);
+        }
+      } catch (e) {
+        // Silent: keep empty
+      } finally {
+        if (!cancelled) setHistoryLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
 
   // Voice capability
   useEffect(() => {
@@ -352,19 +400,30 @@ function App() {
 
   const persistHistory = (next) => {
     setHistory(next);
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-    } catch (e) {}
   };
 
-  const saveToHistory = (entry) => {
-    setHistory((prev) => {
-      const next = [entry, ...prev].slice(0, 50);
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-      } catch (e) {}
-      return next;
-    });
+  const saveToHistory = async (entry) => {
+    // Optimistic UI update
+    setHistory((prev) => [entry, ...prev].slice(0, 50));
+    if (!userId) return;
+    try {
+      const res = await fetch('/api/history', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: userId,
+          id: entry.id,
+          created_at: entry.created_at,
+          payload: entry.payload
+        })
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        console.warn('Failed to save history:', err);
+      }
+    } catch (e) {
+      console.warn('Save history error:', e);
+    }
   };
 
   const handleExplain = async (overrideTopic, overrideMode) => {
@@ -834,12 +893,52 @@ function App() {
     }
   };
 
-  const deleteFromHistory = (id) => {
-    persistHistory(history.filter((h) => h.id !== id));
+  const deleteFromHistory = async (id) => {
+    // Optimistic
+    setHistory((prev) => prev.filter((h) => h.id !== id));
+    if (!userId) return;
+    try {
+      await fetch(
+        `/api/history/${encodeURIComponent(id)}?user_id=${encodeURIComponent(userId)}`,
+        { method: 'DELETE' }
+      );
+    } catch (e) {
+      console.warn('Delete history error:', e);
+    }
   };
 
-  const clearHistory = () => {
-    persistHistory([]);
+  const clearHistory = async () => {
+    setHistory([]);
+    if (!userId) return;
+    try {
+      await fetch(`/api/history?user_id=${encodeURIComponent(userId)}`, {
+        method: 'DELETE'
+      });
+    } catch (e) {
+      console.warn('Clear history error:', e);
+    }
+  };
+
+  // Sync code (cross-device): apply a pasted user_id
+  const applySyncCode = async () => {
+    const code = (syncCodeInput || '').trim();
+    if (!code) {
+      toast.error('Paste a sync code');
+      return;
+    }
+    if (code === userId) {
+      toast.message('That is already your current sync code');
+      return;
+    }
+    try {
+      localStorage.setItem('brainmate.user_id', code);
+      setUserId(code);
+      setSyncCodeInput('');
+      setShowSyncCode(false);
+      toast.success('Sync code applied — loading history…');
+    } catch (e) {
+      toast.error('Could not apply sync code');
+    }
   };
 
   const hasAnyContent =
@@ -1379,6 +1478,72 @@ function App() {
                   <X className="h-4 w-4" />
                 </button>
               </div>
+            </div>
+
+            {/* Sync code panel */}
+            <div className="px-4 py-3 border-b border-[var(--bm-border)] bg-[var(--bm-subtle)]/40">
+              <button
+                onClick={() => setShowSyncCode((v) => !v)}
+                className="w-full flex items-center justify-between text-left"
+              >
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-3.5 w-3.5 text-[var(--bm-accent)]" />
+                  <span className="text-[12px] font-medium text-[var(--bm-text)]">
+                    Sync across devices
+                  </span>
+                </div>
+                <span className="text-[11px] text-[var(--bm-text-soft)]">
+                  {showSyncCode ? 'Hide' : 'Show'}
+                </span>
+              </button>
+              {showSyncCode && (
+                <div className="mt-3 space-y-3">
+                  <div>
+                    <div className="text-[11px] uppercase tracking-wider text-[var(--bm-text-soft)] mb-1">
+                      Your sync code
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <code className="flex-1 text-[11px] font-mono break-all bg-[var(--bm-card)] border border-[var(--bm-border)] rounded-md px-2 py-1.5 text-[var(--bm-text)]">
+                        {userId || '…'}
+                      </code>
+                      <button
+                        onClick={() => {
+                          if (userId) {
+                            navigator.clipboard.writeText(userId);
+                            toast.success('Sync code copied');
+                          }
+                        }}
+                        className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-[var(--bm-border)] bg-[var(--bm-card)] hover:border-[var(--bm-text)]/30"
+                        aria-label="Copy sync code"
+                      >
+                        <Copy className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                    <div className="text-[11px] text-[var(--bm-text-soft)] mt-1.5">
+                      Copy this on one device, paste it on another to share your history.
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[11px] uppercase tracking-wider text-[var(--bm-text-soft)] mb-1">
+                      Apply a sync code
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        value={syncCodeInput}
+                        onChange={(e) => setSyncCodeInput(e.target.value)}
+                        placeholder="paste sync code…"
+                        className="flex-1 text-[12px] font-mono bg-[var(--bm-card)] border border-[var(--bm-border)] rounded-md px-2 py-1.5 text-[var(--bm-text)] focus:outline-none focus:ring-1 focus:ring-[var(--bm-accent)]"
+                      />
+                      <button
+                        onClick={applySyncCode}
+                        className="text-[12px] font-medium px-3 py-1.5 rounded-md bg-[var(--bm-accent)] text-white hover:bg-[var(--bm-accent-hover)] transition-colors"
+                      >
+                        Apply
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
             <div className="flex-1 overflow-y-auto p-3">
               {history.length === 0 ? (

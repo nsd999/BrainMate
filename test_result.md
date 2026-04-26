@@ -177,25 +177,100 @@ frontend:
     file: "app/page.js"
     stuck_count: 0
     priority: "high"
-    needs_retesting: false
+    needs_retesting: true
     status_history:
       - working: "NA"
         agent: "main"
-        comment: "Built premium minimal UI matching spec. Not tested automatically yet — waiting for user approval before invoking frontend testing agent."
+        comment: "Built premium minimal UI matching spec. Streaming, follow-up chat, voice output (Web Speech API), dark mode, multi-language, PDF/Markdown export, MongoDB-backed cross-device history (sync code) all added."
+
+backend:
+  - task: "POST/GET/DELETE /api/history backed by MongoDB (cross-device sync)"
+    implemented: true
+    working: true
+    file: "app/api/[[...path]]/route.js, lib/mongo.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Verified manually with curl: POST /api/history saves doc keyed by user_id; GET /api/history?user_id=X lists items; DELETE /api/history?user_id=X clears all; DELETE /api/history/:id?user_id=X deletes one. Uses MongoDB collection 'history' in DB 'brainmate' (indexes on user_id+created_at and unique id). user_id and payload required."
+      - working: true
+        agent: "testing"
+        comment: "Comprehensive automated testing completed. All MongoDB history CRUD operations working perfectly: POST /api/history with valid payload returns 200 with {ok:true, id, entry}. POST without user_id/payload returns 400. GET /api/history?user_id=X returns items array with correct structure (id, user_id, topic, mode, language, created_at, payload). User isolation verified - different users see only their own entries. DELETE /api/history/:id?user_id=X deletes single entry (404 for bogus ID). DELETE /api/history?user_id=X clears all entries. All validation and error handling working correctly."
+  - task: "POST /api/explain/stream and /api/chat/stream return SSE token stream"
+    implemented: true
+    working: true
+    file: "app/api/[[...path]]/route.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Native fetch streaming via Emergent OpenAI-compatible proxy at integrations.emergentagent.com/llm. /api/explain/stream returns events: meta, token, done, error. /api/chat/stream takes {topic, mode, language, context, messages} and streams plain conversational text (no section tags). Both verified via curl."
+      - working: true
+        agent: "testing"
+        comment: "Comprehensive automated testing completed. POST /api/explain/stream returns proper text/event-stream content-type and streams 287 token events ending with 'event: done'. POST /api/chat/stream with {topic, mode, language, context, messages} returns text/event-stream, streams 48 token events with concatenated text length 228 chars, properly ends with 'event: done'. Both streaming endpoints working perfectly."
+  - task: "Multi-language support in /api/explain* and /api/chat/stream via 'language' param"
+    implemented: true
+    working: true
+    file: "app/api/[[...path]]/route.js"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Manually verified with curl for Spanish and Hindi — all 5 sections returned in target language with correct script. Section tags (<<SIMPLE>> etc) remain English."
+      - working: true
+        agent: "testing"
+        comment: "Comprehensive automated testing completed. POST /api/explain with language='Spanish' returns content with Spanish words and accented characters. POST /api/explain with language='Hindi' returns content containing Devanagari script (Unicode U+0900–U+097F). Multi-language support working correctly for both Spanish and Hindi."
 
 metadata:
   created_by: "main_agent"
-  version: "1.0"
-  test_sequence: 1
-  run_ui: false
+  version: "1.2"
+  test_sequence: 2
+  run_ui: true
 
 test_plan:
-  current_focus: []
+  current_focus:
+    - "POST/GET/DELETE /api/history backed by MongoDB (cross-device sync)"
+    - "POST /api/explain/stream and /api/chat/stream return SSE token stream"
+    - "Multi-language support in /api/explain* and /api/chat/stream via 'language' param"
+    - "BrainMate UI — input, mode selector, results cards, history sidebar, copy+share"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
 
 agent_communication:
+  - agent: "main"
+    message: |
+      New work since last test run:
+      1) Added MongoDB-backed cross-device history. New endpoints:
+         - POST /api/history  body: {user_id, id?, created_at?, payload}
+           returns {ok:true, id, entry}; user_id required, payload required.
+         - GET  /api/history?user_id=X[&limit=N]  returns {user_id, count, items}
+         - DELETE /api/history?user_id=X            clears all for user
+         - DELETE /api/history/:id?user_id=X        deletes single entry
+         All use Mongo collection 'history' in DB 'brainmate' (indexes on
+         user_id+created_at and unique id). Validation: 400 if user_id missing,
+         404 for unknown id on single delete.
+      2) Streaming endpoints already verified working in prior tests, but the
+         /api/chat/stream endpoint is new. Test:
+         POST /api/chat/stream with body {topic, mode, language, context, messages:[{role:'user',content:'hi'}]}
+         expect content-type text/event-stream and a stream of "event: token"
+         lines containing JSON {text:"..."} chunks, ending with "event: done".
+      3) Multi-language: POST /api/explain with {language:'Spanish'} should
+         return all 5 fields in Spanish.
+
+      Please test:
+      A. /api/history full CRUD with realistic payloads. Confirm user_id isolation
+         (user_a does not see user_b's entries).
+      B. /api/chat/stream returns valid SSE stream and at least one token.
+      C. /api/explain with language='Spanish' and language='Hindi' returns
+         non-empty content in target script.
+      D. Re-confirm /api/explain happy path still works.
   - agent: "main"
     message: |
       MVP built end-to-end. Backend is /api/explain (POST). It shells out to
@@ -236,3 +311,34 @@ agent_communication:
       
       All backend tasks marked as working=true and needs_retesting=false.
       Backend is production-ready.
+  - agent: "testing"
+    message: |
+      ✅ COMPREHENSIVE BACKEND TESTING COMPLETE - ALL NEW TESTS PASSED (15/15)
+      
+      Successfully tested all new functionality requested in review:
+      
+      MongoDB History CRUD (10 sub-tests):
+      ✅ POST /api/history with valid payload -> 200 with {ok:true, id, entry}
+      ✅ POST /api/history without user_id -> 400 error
+      ✅ POST /api/history without payload -> 400 error  
+      ✅ POST multiple entries for same user -> 200
+      ✅ GET /api/history?user_id=X -> 200 with items array, newest first
+      ✅ GET /api/history without user_id -> 400 error
+      ✅ User isolation verified - different users see only their entries
+      ✅ DELETE /api/history/:id?user_id=X -> 200, count decreases
+      ✅ DELETE /api/history/bogus?user_id=X -> 404 error
+      ✅ DELETE /api/history?user_id=X -> 200, clears all entries
+      
+      Multi-language Support:
+      ✅ POST /api/explain with language='Spanish' -> Spanish content with accented chars
+      ✅ POST /api/explain with language='Hindi' -> Devanagari script content
+      
+      Streaming Endpoints:
+      ✅ POST /api/chat/stream -> text/event-stream, 48 tokens, proper 'event: done'
+      ✅ POST /api/explain/stream -> text/event-stream, 287 tokens, proper 'event: done'
+      
+      Regression Testing:
+      ✅ POST /api/explain still returns 5-section JSON correctly
+      
+      All backend tasks now marked as working=true and needs_retesting=false.
+      Backend is fully production-ready with all requested features working perfectly.
