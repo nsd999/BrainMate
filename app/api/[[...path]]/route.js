@@ -465,13 +465,13 @@ export async function POST(request, { params }) {
       const result = await callLLMOnce(topic, mode, language);
       const followUps = await generateFollowUps(topic, result.simple_explanation);
       return NextResponse.json({
-        topic,
-        mode,
-        language,
-        generated_at: new Date().toISOString(),
-        ...result
-      });
-    }
+  topic,
+  mode,
+  language,
+  generated_at: new Date().toISOString(),
+  ...result,
+  followUps
+});
 
     // -------- Follow-up chat (streaming) --------
     if (route === 'chat/stream') {
