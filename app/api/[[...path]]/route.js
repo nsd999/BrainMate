@@ -50,7 +50,7 @@ Rules:
 - Steps must feel like guidance, not instructions from a machine.
 - Action plan must feel practical and doable in real life.
 
-- Output nothing outside of these tagged sections.
+- Output nothing outside of these tagged sections.`;
 
 const QUIZ_SYSTEM_PROMPT = `You are BrainMate, generating a SHORT pop-quiz for a learner who just read an explanation. Output ONLY four multiple-choice questions in this exact tagged format. NO extra text, NO markdown.
 
