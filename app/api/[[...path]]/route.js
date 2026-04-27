@@ -315,28 +315,73 @@ function parseSections(text) {
 async function generateFollowUps(topic, explanation) {
   const { baseUrl, apiKey, model } = getLLMConfig();
 
-  const res = await fetch(`${baseUrl}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      model,
-      messages: [
-        { role: 'system', content: FOLLOWUP_SYSTEM_PROMPT },
-        { role: 'user', content: `Topic: ${topic}\nExplanation:\n${explanation}` }
-      ]
-    })
-  });
-
-  const data = await res.json();
-
   try {
-    return JSON.parse(data.choices[0].message.content);
-  } catch {
-    return [];
+    const res = await fetch(`${baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: 'system', content: FOLLOWUP_SYSTEM_PROMPT },
+          { role: 'user', content: `Topic: ${topic}\nExplanation:\n${explanation}` }
+        ]
+      })
+    });
+
+    // ❌ API failed
+    if (!res.ok) {
+      console.error(`[generateFollowUps] API error ${res.status}`);
+      return getFallbackFollowUps();
+    }
+
+    const data = await res.json();
+    const content = data?.choices?.[0]?.message?.content;
+
+    if (typeof content !== 'string') {
+      console.error('[generateFollowUps] Invalid response format');
+      return getFallbackFollowUps();
+    }
+
+    // 🔥 SAFE PARSING (main fix)
+    let parsed = [];
+
+    try {
+      parsed = JSON.parse(content);
+    } catch {
+      // try extracting JSON from messy response
+      const match = content.match(/\[.*\]/s);
+      if (match) {
+        try {
+          parsed = JSON.parse(match[0]);
+        } catch {
+          parsed = [];
+        }
+      }
+    }
+
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      return parsed;
+    }
+
+    return getFallbackFollowUps();
+
+  } catch (err) {
+    console.error('[generateFollowUps error]', err?.message || err);
+    return getFallbackFollowUps();
   }
+}
+
+// ✅ fallback function (cleaner)
+function getFallbackFollowUps() {
+  return [
+    "Can you explain this simply?",
+    "Give a real-life example",
+    "Why is this important?",
+    "How can I use this?"
+  ];
 }
 
 // ----------- Handlers -----------
