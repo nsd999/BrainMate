@@ -89,21 +89,24 @@ Rules:
 
 function buildQuizUserPrompt(topic, mode, language, context) {
   const modeInstruction = MODE_INSTRUCTIONS[mode] || MODE_INSTRUCTIONS.student;
+  function buildUserPrompt(topic, mode, language) {
+  const modeInstruction = MODE_INSTRUCTIONS[mode] || MODE_INSTRUCTIONS.student;
   const lang = (language || 'English').toString();
+
   const langLine =
     lang.toLowerCase() === 'english'
       ? ''
-      : `\nIMPORTANT: Write the QUESTION text, options, and EXPLAIN in ${lang}. Keep tags (<<Q1>>, <<END>>, ANSWER:, EXPLAIN:) and the letters A/B/C/D in English.`;
+      : `\n\nIMPORTANT: Write all output (including bullets and time labels) in ${lang}. Translate the action time labels too. Keep the section tags (<<SIMPLE>>, <<END>>, etc.) in English exactly.`;
+
   return `Topic: ${topic}
-Audience: ${mode.toUpperCase()} — ${modeInstruction}${langLine}
 
-Use this explanation as the source of truth for the questions:
----
-${context || '(no prior context — generate from general knowledge)'}
----
+Audience mode: ${mode.toUpperCase()}
+${modeInstruction}${langLine}
 
-Now produce ONLY the 4 tagged quiz questions.`;
-}
+Make the explanation feel practical and useful in real life.
+
+Produce ONLY the 5 tagged sections described in the system prompt.`;
+  }
 
 function parseQuiz(text) {
   const out = [];
