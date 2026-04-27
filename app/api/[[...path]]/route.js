@@ -13,15 +13,15 @@ const MODE_INSTRUCTIONS = {
   pro: 'Explain with clarity and depth like a mentor. Use real-world scenarios, practical applications, and clear reasoning. Keep it concise but insightful.'
 };
 
-const SECTION_SYSTEM_PROMPT = `You are BrainMate, an AI tutor. Explain any topic clearly and give an actionable plan.
+const SECTION_SYSTEM_PROMPT = `You are BrainMate, an AI tutor. Your job is to explain concepts like a smart, friendly person — not like a textbook.
 
 CRITICAL: Output ONLY these 5 tagged sections. No headings, no markdown, no text outside tags.
 
 <<SIMPLE>>
-2-3 sentence easy explanation.
+2-3 sentence easy explanation. Think of it like explaining to a friend over coffee.
 <<END>>
 <<ANALOGY>>
-One vivid, relatable real-life example (2-3 sentences).
+One vivid, relatable real-life example (2-3 sentences). Use everyday things: phones, money, school, sports, or how things work around us.
 <<END>>
 <<STEPS>>
 - Step or guidance point
@@ -30,7 +30,7 @@ One vivid, relatable real-life example (2-3 sentences).
 (4-6 total, short and crisp, each on new line starting with "- ")
 <<END>>
 <<SUMMARY>>
-1-2 sentence TL;DR.
+1-2 sentence TL;DR. Sum it up like you're texting a friend.
 <<END>>
 <<ACTIONS>>
 - [10 min] First actionable step
@@ -39,11 +39,13 @@ One vivid, relatable real-life example (2-3 sentences).
 (3-5 total, each line: "- [time] action")
 <<END>>
 
-Tone:
-- Talk like a smart, friendly buddy.
-- Make it feel easy and doable.
-- Use simple language and real-life situations.
-- Avoid robotic phrasing and repetition.`;
+Tone & Personality:
+- Talk like a smart senior explaining to a junior dev/student.
+- Use conversational phrases: "Think of it like this...", "Here's a simple way to see it...", "Basically...", "The key thing is..."
+- Make it feel easy and doable, not intimidating.
+- Use simple language and real-life situations. Avoid robotic phrasing.
+- Show confidence but stay humble. You're helping, not lecturing.
+- Be natural, clear, and relatable.`;
 
 const FOLLOWUP_SYSTEM_PROMPT = `
 Generate 4 short follow-up questions based on the topic and explanation.
@@ -70,13 +72,31 @@ ANSWER: <single letter A/B/C/D>
 EXPLAIN: <one short sentence justifying the answer>
 <<END>>
 <<Q2>>
-... (same 7-line structure)
+QUESTION: <one clear question>
+A) <option A>
+B) <option B>
+C) <option C>
+D) <option D>
+ANSWER: <single letter A/B/C/D>
+EXPLAIN: <one short sentence justifying the answer>
 <<END>>
 <<Q3>>
-... 
+QUESTION: <one clear question>
+A) <option A>
+B) <option B>
+C) <option C>
+D) <option D>
+ANSWER: <single letter A/B/C/D>
+EXPLAIN: <one short sentence justifying the answer>
 <<END>>
 <<Q4>>
-... 
+QUESTION: <one clear question>
+A) <option A>
+B) <option B>
+C) <option C>
+D) <option D>
+ANSWER: <single letter A/B/C/D>
+EXPLAIN: <one short sentence justifying the answer>
 <<END>>
 
 Rules:
@@ -86,6 +106,23 @@ Rules:
 - Mix difficulty: 1 easy recall, 2 understanding, 1 applied.
 - No "all of the above" / "none of the above".
 - Do not repeat the explanation; test understanding.`;
+
+function buildUserPrompt(topic, mode, language) {
+  const modeInstruction = MODE_INSTRUCTIONS[mode] || MODE_INSTRUCTIONS.student;
+  const lang = (language || 'English').toString();
+  const langLine =
+    lang.toLowerCase() === 'english'
+      ? ''
+      : `\n\nIMPORTANT: Write all output (including bullets and time labels) in ${lang}. Translate the action time labels too. Keep the section tags (<<SIMPLE>>, <<END>>, etc.) in English exactly as shown.`;
+  return `Topic: ${topic}
+
+Audience mode: ${mode.toUpperCase()}
+${modeInstruction}${langLine}
+
+Make the explanation feel practical and useful in real life.
+
+Produce ONLY the 5 tagged sections described in the system prompt.`;
+}
 
 function buildQuizUserPrompt(topic, mode, language, context) {
   const modeInstruction = MODE_INSTRUCTIONS[mode] || MODE_INSTRUCTIONS.student;
@@ -131,23 +168,6 @@ function parseQuiz(text) {
     }
   }
   return out;
-}
-
-function buildUserPrompt(topic, mode, language) {
-  const modeInstruction = MODE_INSTRUCTIONS[mode] || MODE_INSTRUCTIONS.student;
-  const lang = (language || 'English').toString();
-  const langLine =
-    lang.toLowerCase() === 'english'
-      ? ''
-      : `\n\nIMPORTANT: Write all output (including bullets and time labels) in ${lang}. Translate the action time labels too. Keep the section tags (<<SIMPLE>>, <<END>>, etc.) in English exactly as shown.`;
-  return `Topic: ${topic}
-
-Audience mode: ${mode.toUpperCase()}
-${modeInstruction}${langLine}
-
-Make the explanation feel practical and useful in real life.
-
-Produce ONLY the 5 tagged sections described in the system prompt.`;
 }
 
 function getLLMConfig() {
@@ -196,7 +216,7 @@ async function callLLMOnce(topic, mode, language) {
     },
     body: JSON.stringify({
       model,
-      temperature: 0.6,
+      temperature: 0.8,
       stream: false,
       messages: [
         { role: 'system', content: SECTION_SYSTEM_PROMPT },
@@ -216,7 +236,7 @@ async function callLLMOnce(topic, mode, language) {
 
 // ----------- Streaming path (SSE passthrough) -----------
 
-async function* streamChatCompletion(messages, { temperature = 0.6 } = {}) {
+async function* streamChatCompletion(messages, { temperature = 0.8 } = {}) {
   const { baseUrl, apiKey, model } = getLLMConfig();
   const upstream = await fetch(`${baseUrl}/chat/completions`, {
     method: 'POST',
@@ -312,6 +332,7 @@ async function generateFollowUps(topic, explanation) {
       },
       body: JSON.stringify({
         model,
+        temperature: 0.8,
         messages: [
           { role: 'system', content: FOLLOWUP_SYSTEM_PROMPT },
           { role: 'user', content: `Topic: ${topic}\nExplanation:\n${explanation}` }
@@ -564,7 +585,7 @@ Rules:
           };
           try {
             send('meta', { started_at: new Date().toISOString() });
-            for await (const delta of streamChatCompletion(fullMessages, { temperature: 0.7 })) {
+            for await (const delta of streamChatCompletion(fullMessages, { temperature: 0.8 })) {
               send('token', { text: delta });
             }
             send('done', { finished_at: new Date().toISOString() });
