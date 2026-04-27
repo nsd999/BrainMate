@@ -463,6 +463,7 @@ export async function POST(request, { params }) {
       }
 
       const result = await callLLMOnce(topic, mode, language);
+      const followUps = await generateFollowUps(topic, result.simple_explanation);
       return NextResponse.json({
         topic,
         mode,
