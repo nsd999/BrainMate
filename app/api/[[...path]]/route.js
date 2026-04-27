@@ -156,7 +156,7 @@ function getLLMConfig() {
     return {
       baseUrl: 'https://api.groq.com/openai/v1',
       apiKey: groqKey,
-model: 'mixtral-8x7b-32768'
+model: 'llama-3.1-8b-instant'
     };
   }
 
