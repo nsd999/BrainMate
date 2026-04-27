@@ -282,32 +282,6 @@ async function* streamChatCompletion(messages, { temperature = 0.6 } = {}) {
 // ----------- Section parser (from full text) -----------
 
 function parseSections(text) {
-  async function generateFollowUps(topic, explanation) {
-  const { baseUrl, apiKey, model } = getLLMConfig();
-
-  const res = await fetch(`${baseUrl}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      model,
-      messages: [
-        { role: 'system', content: FOLLOWUP_SYSTEM_PROMPT },
-        { role: 'user', content: `Topic: ${topic}\nExplanation:\n${explanation}` }
-      ]
-    })
-  });
-
-  const data = await res.json();
-
-  try {
-    return JSON.parse(data.choices[0].message.content);
-  } catch {
-    return [];
-  }
-  }
   const grab = (tag) => {
     const re = new RegExp(`<<${tag}>>([\\s\\S]*?)<<END>>`, 'i');
     const m = text.match(re);
@@ -338,6 +312,32 @@ function parseSections(text) {
     summary: grab('SUMMARY'),
     action_plan
   };
+}
+async function generateFollowUps(topic, explanation) {
+  const { baseUrl, apiKey, model } = getLLMConfig();
+
+  const res = await fetch(`${baseUrl}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      model,
+      messages: [
+        { role: 'system', content: FOLLOWUP_SYSTEM_PROMPT },
+        { role: 'user', content: `Topic: ${topic}\nExplanation:\n${explanation}` }
+      ]
+    })
+  });
+
+  const data = await res.json();
+
+  try {
+    return JSON.parse(data.choices[0].message.content);
+  } catch {
+    return [];
+  }
 }
 
 // ----------- Handlers -----------
