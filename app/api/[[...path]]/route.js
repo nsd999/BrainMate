@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
-import { getHistoryCollection } from '@/lib/mongo';
+import { getHistoryCollection, getStatsCollection } from '@/lib/mongo';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -11,9 +11,7 @@ const MODE_INSTRUCTIONS = {
   pro: 'Explain to a working professional. Use precise terminology but still keep it clear. Include nuance and practical depth.'
 };
 
-const SECTION_SYSTEM_PROMPT = `You are BrainMate, an expert AI tutor. Your job is to explain ANY topic with crystal clarity and give the user an actionable plan.
-
-You MUST respond using EXACTLY this section-delimited format, in this exact order, with NO markdown, NO code fences, NO extra commentary:
+const SECTION_SYSTEM_PROMPT = `You are BrainMate, an expert AI tutor. Your job is to explain ANY topic with crystal clarity and give the user an actionable plan.You MUST respond using EXACTLY this section-delimited format, in this exact order, with NO markdown, NO code fences, NO extra commentary:
 
 <<SIMPLE>>
 A 2-3 sentence very easy explanation.
@@ -42,6 +40,83 @@ Rules:
 - Avoid jargon; if a difficult word is essential, define it inline in plain English.
 - Friendly, encouraging tone. No filler. Action plan must be practical and topic-specific.
 - Output nothing outside of these tagged sections.`;
+
+const QUIZ_SYSTEM_PROMPT = `You are BrainMate, generating a SHORT pop-quiz for a learner who just read an explanation. Output ONLY four multiple-choice questions in this exact tagged format. NO extra text, NO markdown.
+
+<<Q1>>
+QUESTION: <one clear question>
+A) <option A>
+B) <option B>
+C) <option C>
+D) <option D>
+ANSWER: <single letter A/B/C/D>
+EXPLAIN: <one short sentence justifying the answer>
+<<END>>
+<<Q2>>
+... (same 7-line structure)
+<<END>>
+<<Q3>>
+... 
+<<END>>
+<<Q4>>
+... 
+<<END>>
+
+Rules:
+- Exactly 4 questions, in order Q1..Q4.
+- Each question MUST have exactly 4 options A) B) C) D).
+- The ANSWER must be one of A/B/C/D and the EXPLAIN must be one short sentence (<= 25 words).
+- Mix difficulty: 1 easy recall, 2 understanding, 1 applied.
+- No "all of the above" / "none of the above".
+- Do not repeat the explanation; test understanding.`;
+
+function buildQuizUserPrompt(topic, mode, language, context) {
+  const modeInstruction = MODE_INSTRUCTIONS[mode] || MODE_INSTRUCTIONS.student;
+  const lang = (language || 'English').toString();
+  const langLine =
+    lang.toLowerCase() === 'english'
+      ? ''
+      : `\nIMPORTANT: Write the QUESTION text, options, and EXPLAIN in ${lang}. Keep tags (<<Q1>>, <<END>>, ANSWER:, EXPLAIN:) and the letters A/B/C/D in English.`;
+  return `Topic: ${topic}
+Audience: ${mode.toUpperCase()} — ${modeInstruction}${langLine}
+
+Use this explanation as the source of truth for the questions:
+---
+${context || '(no prior context — generate from general knowledge)'}
+---
+
+Now produce ONLY the 4 tagged quiz questions.`;
+}
+
+function parseQuiz(text) {
+  const out = [];
+  for (let i = 1; i <= 4; i++) {
+    const re = new RegExp(`<<Q${i}>>([\\s\\S]*?)<<END>>`, 'i');
+    const m = text.match(re);
+    if (!m) continue;
+    const block = m[1];
+    const grab = (label) => {
+      const lr = new RegExp(`^\\s*${label}:\\s*(.+)$`, 'im');
+      const r = block.match(lr);
+      return r ? r[1].trim() : '';
+    };
+    const optRe = /^\s*([ABCD])\)\s*(.+)$/gim;
+    const options = [];
+    let mm;
+    while ((mm = optRe.exec(block)) !== null) {
+      options.push({ letter: mm[1].toUpperCase(), text: mm[2].trim() });
+    }
+    const question = grab('QUESTION');
+    const answer = (grab('ANSWER') || '').toUpperCase().slice(0, 1);
+    const explain = grab('EXPLAIN');
+    if (question && options.length === 4 && /^[ABCD]$/.test(answer)) {
+      out.push({ index: i, question, options, answer, explain });
+    }
+  }
+  return out;
+}
+
+
 
 function buildUserPrompt(topic, mode, language) {
   const modeInstruction = MODE_INSTRUCTIONS[mode] || MODE_INSTRUCTIONS.student;
