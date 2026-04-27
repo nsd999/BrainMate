@@ -13,7 +13,7 @@ const MODE_INSTRUCTIONS = {
   pro: 'Explain with clarity and depth like a mentor. Use real-world scenarios, practical applications, and clear reasoning. Keep it concise but insightful.'
 };
 
-const SECTION_SYSTEM_PROMPT = `You are BrainMate, an expert AI tutor. Your job is to explain ANY topic with crystal clarity and give the user an actionable plan.You MUST respond using EXACTLY this section-delimited format, in this exact order, with NO markdown, NO code fences, NO extra commentary:
+const SECTION_SYSTEM_PROMPT = `You are BrainMate, an expert AI tutor. Your job is to explain ANY topic with crystal clarity and give the user an actionable plan.You MUST respond using EXACTLY this[...]
 
 <<SIMPLE>>
 A 2-3 sentence very easy explanation.
@@ -40,12 +40,12 @@ A 1-2 sentence TL;DR.
 Rules:
 - Talk like a smart, friendly buddy who explains things clearly and confidently.
 - Keep it natural and human, not robotic or textbook-like.
-- ALWAYS make the user feel “this is actually easy”.
+- ALWAYS make the user feel "this is actually easy".
 - Use simple, relatable language and real-life situations (school, phone, money, daily life).
 - Avoid boring definitions — explain meaning through examples.
 - Be slightly conversational, but not slangy or unprofessional.
 
-- Occasionally start explanations in an engaging way like "Think of it like this..." or "Here’s a simple way to see it..."
+- Occasionally start explanations in an engaging way like "Think of it like this..." or "Here's a simple way to see it..."
 - Steps should feel like guidance a smart friend would give, not formal textbook instructions.
 - Keep steps between 4–6 only. Prioritize clarity over completeness.
 
@@ -69,7 +69,7 @@ Output format:
 ["Question 1", "Question 2", "Question 3", "Question 4"]
 `;
 
-const QUIZ_SYSTEM_PROMPT = `You are BrainMate, generating a SHORT pop-quiz for a learner who just read an explanation. Output ONLY four multiple-choice questions in this exact tagged format. NO extra text, NO markdown.
+const QUIZ_SYSTEM_PROMPT = `You are BrainMate, generating a SHORT pop-quiz for a learner who just read an explanation. Output ONLY four multiple-choice questions in this exact tagged format. NO ex[...]
 
 <<Q1>>
 QUESTION: <one clear question>
@@ -152,7 +152,7 @@ function buildUserPrompt(topic, mode, language) {
   const langLine =
     lang.toLowerCase() === 'english'
       ? ''
-      : `\n\nIMPORTANT: Write all output (including bullets and time labels) in ${lang}. Translate the action time labels too. Keep the section tags (<<SIMPLE>>, <<END>>, etc.) in English exactly as specified.`;
+      : `\n\nIMPORTANT: Write all output (including bullets and time labels) in ${lang}. Translate the action time labels too. Keep the section tags (<<SIMPLE>>, <<END>>, etc.) in English exactly[...]`;
   return `Topic: ${topic}
 
 Audience mode: ${mode.toUpperCase()}
@@ -173,7 +173,7 @@ function getLLMConfig() {
     return {
       baseUrl: 'https://api.groq.com/openai/v1',
       apiKey: groqKey,
-model: 'llama-3.1-8b-instant'
+      model: 'llama-3.1-8b-instant'
     };
   }
 
@@ -311,6 +311,7 @@ function parseSections(text) {
     action_plan
   };
 }
+
 async function generateFollowUps(topic, explanation) {
   const { baseUrl, apiKey, model } = getLLMConfig();
 
@@ -462,20 +463,21 @@ export async function POST(request, { params }) {
 
       const result = await callLLMOnce(topic, mode, language);
 
-// 🔥 generate follow-ups based on explanation
-const followUps = await generateFollowUps(
-  topic,
-  result.simple_explanation + '\n' + result.real_life_analogy
-);
+      // 🔥 generate follow-ups based on explanation
+      const followUps = await generateFollowUps(
+        topic,
+        result.simple_explanation + '\n' + result.real_life_analogy
+      );
 
-return NextResponse.json({
-  topic,
-  mode,
-  language,
-  generated_at: new Date().toISOString(),
-  ...result,
-  follow_ups: followUps
-});
+      return NextResponse.json({
+        topic,
+        mode,
+        language,
+        generated_at: new Date().toISOString(),
+        ...result,
+        follow_ups: followUps
+      });
+    }
 
     // -------- Follow-up chat (streaming) --------
     if (route === 'chat/stream') {
