@@ -463,14 +463,20 @@ export async function POST(request, { params }) {
       }
 
       const result = await callLLMOnce(topic, mode, language);
-      const followUps = await generateFollowUps(topic, result.simple_explanation);
-      return NextResponse.json({
+
+// 🔥 generate follow-ups based on explanation
+const followUps = await generateFollowUps(
+  topic,
+  result.simple_explanation + '\n' + result.real_life_analogy
+);
+
+return NextResponse.json({
   topic,
   mode,
   language,
   generated_at: new Date().toISOString(),
   ...result,
-  followUps`
+  follow_ups: followUps
 });
 
     // -------- Follow-up chat (streaming) --------
