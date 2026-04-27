@@ -58,7 +58,7 @@ Output format:
 ["Question 1", "Question 2", "Question 3", "Question 4"]
 `;
 
-const QUIZ_SYSTEM_PROMPT = `You are BrainMate, generating a SHORT pop-quiz for a learner who just read an explanation. Output ONLY four multiple-choice questions in this exact tagged format. NO ex[...]
+const QUIZ_SYSTEM_PROMPT = `You are BrainMate, generating a SHORT pop-quiz for a learner who just read an explanation. Output ONLY four multiple-choice questions in this exact tagged format. NO extra text.
 
 <<Q1>>
 QUESTION: <one clear question>
@@ -94,7 +94,6 @@ function buildQuizUserPrompt(topic, mode, language, context) {
     lang.toLowerCase() === 'english'
       ? ''
       : `\nIMPORTANT: Write the QUESTION text, options, and EXPLAIN in ${lang}. Keep tags (<<Q1>>, <<END>>, ANSWER:, EXPLAIN:) and the letters A/B/C/D in English.`;
-
   return `Topic: ${topic}
 Audience: ${mode.toUpperCase()} — ${modeInstruction}${langLine}
 
@@ -134,35 +133,13 @@ function parseQuiz(text) {
   return out;
 }
 
-
-
-function buildQuizUserPrompt(topic, mode, language, context) {
-  const modeInstruction = MODE_INSTRUCTIONS[mode] || MODE_INSTRUCTIONS.student;
-  const lang = (language || 'English').toString();
-  const langLine =
-    lang.toLowerCase() === 'english'
-      ? ''
-      : `\nIMPORTANT: Write the QUESTION text, options, and EXPLAIN in ${lang}. Keep tags (<<Q1>>, <<END>>, ANSWER:, EXPLAIN:) and the letters A/B/C/D in English.`;
-
-  return `Topic: ${topic}
-Audience: ${mode.toUpperCase()} — ${modeInstruction}${langLine}
-
-Use this explanation as the source of truth for the questions:
----
-${context || '(no prior context — generate from general knowledge)'}
----
-
-Now produce ONLY the 4 tagged quiz questions.`;
-}
-
 function buildUserPrompt(topic, mode, language) {
   const modeInstruction = MODE_INSTRUCTIONS[mode] || MODE_INSTRUCTIONS.student;
   const lang = (language || 'English').toString();
   const langLine =
     lang.toLowerCase() === 'english'
       ? ''
-      : `\n\nIMPORTANT: Write all output (including bullets and time labels) in ${lang}. Translate the action time labels too. Keep the section tags (<<SIMPLE>>, <<END>>, etc.) in English exactly.`;
-
+      : `\n\nIMPORTANT: Write all output (including bullets and time labels) in ${lang}. Translate the action time labels too. Keep the section tags (<<SIMPLE>>, <<END>>, etc.) in English exactly as shown.`;
   return `Topic: ${topic}
 
 Audience mode: ${mode.toUpperCase()}
@@ -206,6 +183,7 @@ function getLLMConfig() {
 
   throw new Error('No LLM key configured (set GROQ_API_KEY).');
 }
+
 // ----------- Non-streaming path (kept for compatibility) -----------
 
 async function callLLMOnce(topic, mode, language) {
