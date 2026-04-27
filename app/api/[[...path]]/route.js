@@ -470,7 +470,7 @@ export async function POST(request, { params }) {
   language,
   generated_at: new Date().toISOString(),
   ...result,
-  followUps
+  followUps`
 });
 
     // -------- Follow-up chat (streaming) --------
