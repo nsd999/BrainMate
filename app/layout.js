@@ -1,6 +1,7 @@
 import './globals.css';
 import { Inter } from 'next/font/google';
 import { Toaster } from '@/components/ui/sonner';
+import { Analytics } from "@vercel/analytics/next";
 
 const inter = Inter({
   subsets: ['latin'],
@@ -32,10 +33,11 @@ export default function RootLayout({ children }) {
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeBootstrap }} />
       </head>
-      <body className="min-h-screen bg-[var(--bm-bg)] text-[var(--bm-text)] antialiased font-sans">
-        {children}
-        <Toaster position="top-center" />
-      </body>
+      <body className="min-h-screen ...">
+  {children}
+  <Toaster position="top-center" />
+  <Analytics />
+</body>
     </html>
   );
 }
