@@ -134,23 +134,38 @@ Produce ONLY the 5 tagged sections described in the system prompt.`;
 }
 
 function getLLMConfig() {
-  const emergentKey = process.env.EMERGENT_LLM_KEY;
+  const groqKey = process.env.GROQ_API_KEY;
   const openaiKey = process.env.OPENAI_API_KEY;
-  const preferred = (process.env.LLM_PROVIDER || 'emergent').toLowerCase();
-  const model = process.env.OPENAI_MODEL || 'gpt-4o-mini';
+  const emergentKey = process.env.EMERGENT_LLM_KEY;
 
-  if (preferred === 'openai' && openaiKey) {
-    return { baseUrl: 'https://api.openai.com/v1', apiKey: openaiKey, model };
+  // ✅ PRIORITY 1: GROQ (FREE)
+  if (groqKey) {
+    return {
+      baseUrl: 'https://api.groq.com/openai/v1',
+      apiKey: groqKey,
+      model: 'llama3-8b-8192'
+    };
   }
+
+  // fallback options (keep them)
   if (emergentKey) {
-    return { baseUrl: 'https://integrations.emergentagent.com/llm', apiKey: emergentKey, model };
+    return {
+      baseUrl: 'https://integrations.emergentagent.com/llm',
+      apiKey: emergentKey,
+      model: 'gpt-4o-mini'
+    };
   }
-  if (openaiKey) {
-    return { baseUrl: 'https://api.openai.com/v1', apiKey: openaiKey, model };
-  }
-  throw new Error('No LLM key configured (set EMERGENT_LLM_KEY or OPENAI_API_KEY).');
-}
 
+  if (openaiKey) {
+    return {
+      baseUrl: 'https://api.openai.com/v1',
+      apiKey: openaiKey,
+      model: 'gpt-4o-mini'
+    };
+  }
+
+  throw new Error('No LLM key configured (set GROQ_API_KEY).');
+}
 // ----------- Non-streaming path (kept for compatibility) -----------
 
 async function callLLMOnce(topic, mode, language) {
