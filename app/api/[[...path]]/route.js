@@ -56,6 +56,21 @@ Rules:
 
 - Output nothing outside of these tagged sections.`;
 
+const FOLLOWUP_SYSTEM_PROMPT = `You are BrainMate.
+
+Generate 4 short, relevant follow-up questions based on the user's topic and explanation.
+
+Rules:
+- Questions must feel natural and curious
+- Keep them short (max 10 words)
+- Make them specific to the topic
+- Avoid generic questions
+- Output ONLY a JSON array of strings
+
+Example:
+["What is compound interest?", "How to grow savings faster?", "Best bank interest rates?", "Any risks involved?"]
+`;
+
 const QUIZ_SYSTEM_PROMPT = `You are BrainMate, generating a SHORT pop-quiz for a learner who just read an explanation. Output ONLY four multiple-choice questions in this exact tagged format. NO extra text, NO markdown.
 
 <<Q1>>
