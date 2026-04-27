@@ -6,9 +6,11 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const MODE_INSTRUCTIONS = {
-  kid: 'Explain as if to a curious 8-year-old. Use very simple words, playful comparisons, and short sentences. No jargon at all.',
-  student: 'Explain as if to a high-school or early college student. Use clear, educational language. Define any technical terms simply.',
-  pro: 'Explain to a working professional. Use precise terminology but still keep it clear. Include nuance and practical depth.'
+  kid: 'Explain like you are teaching a curious 8-year-old. Use very simple words, fun examples from daily life (toys, school, games), and short sentences. Make it feel friendly and playful.',
+  
+  student: 'Explain clearly like a good teacher. Use simple language, step-by-step logic, and relatable examples from school, exams, or real-world situations. Avoid unnecessary complexity.',
+  
+  pro: 'Explain with clarity and depth like a mentor. Use real-world scenarios, practical applications, and clear reasoning. Keep it concise but insightful.'
 };
 
 const SECTION_SYSTEM_PROMPT = `You are BrainMate, an expert AI tutor. Your job is to explain ANY topic with crystal clarity and give the user an actionable plan.You MUST respond using EXACTLY this section-delimited format, in this exact order, with NO markdown, NO code fences, NO extra commentary:
@@ -129,6 +131,8 @@ function buildUserPrompt(topic, mode, language) {
 
 Audience mode: ${mode.toUpperCase()}
 ${modeInstruction}${langLine}
+
+Make the explanation feel practical and useful in real life.
 
 Produce ONLY the 5 tagged sections described in the system prompt.`;
 }
