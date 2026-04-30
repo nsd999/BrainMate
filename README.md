@@ -1,150 +1,81 @@
-TITLE: Fix BrainMate API + Upgrade to Smart Buddy Style + Voice Improvement
+🧠 BrainMate Buddy
+
+«Understand better. Learn smarter — like a friend sitting next to you.»
 
 ---
 
-PROBLEM
+🚀 What is BrainMate?
 
-The current API has:
+BrainMate is an AI-powered learning assistant that explains any topic in a simple, real-life, and conversational way.
 
-- Duplicate functions (buildUserPrompt, buildQuizUserPrompt)
-- Confusing structure
-- AI responses sound like textbook (boring, robotic)
-- Voice output sounds unnatural
+Instead of textbook-style answers, it feels like:
 
----
-
-GOAL
-
-Make BrainMate feel like a smart senior friend, not a teacher or textbook.
+👉 a smart senior explaining things clearly
+👉 breaking down confusion instantly
+👉 guiding you step-by-step
 
 ---
 
-REQUIRED FIXES
+🌐 Live App
 
-1. REMOVE DUPLICATES
-
-- Keep only ONE version of:
-  - buildUserPrompt()
-  - buildQuizUserPrompt()
-
-2. CLEAN STRUCTURE
-   Order should be:
-
-3. Prompts
-
-4. Helper functions
-
-5. API handlers
-
-6. FIX PROMPT (VERY IMPORTANT)
-
-Replace SECTION_SYSTEM_PROMPT with:
-
-"You are BrainMate, a smart senior friend helping a junior understand things.
-
-Before explaining:
-
-- Briefly acknowledge confusion or curiosity
-
-Style:
-
-- Talk casually but clearly
-- Avoid textbook definitions
-- Use phrases like:
-  'Okay, this looks confusing at first...'
-  'Think of it like this...'
-  'Here’s the simple idea...'
-  'Most people get this wrong because...'
-
-Tone:
-
-- Friendly, slightly informal
-- Use 'you'
-- Vary sentence length
-- Make it feel like real conversation
-
-IMPORTANT:
-
-- Do NOT sound robotic
-- Do NOT repeat same explanation pattern
-- Keep it natural every time
-
-OUTPUT FORMAT MUST STILL FOLLOW TAGS:
-<<SIMPLE>>, <<ANALOGY>>, <<STEPS>>, <<SUMMARY>>, <<ACTIONS>>"
+👉 https://brainmate-seven.vercel.app/
 
 ---
 
-VOICE UPGRADE (ADD THIS)
+✨ Features
 
-Add function:
-
-async function formatForVoice(text) {
-return text
-.replace(/./g, '. ')
-.replace(/,/g, ', ')
-.replace(/:/g, ': ')
-.trim();
-}
+- 🧠 Simple explanations (no jargon)
+- 🔁 Real-life analogies
+- 📋 Step-by-step breakdown
+- ⚡ Actionable learning plan
+- ❓ Smart follow-up questions
+- 🔊 Listen mode (natural voice)
 
 ---
 
-API CHANGE
+🧠 What makes it different?
 
-After getting result:
+Most AI tools explain like a book.
 
-const result = await callLLMOnce(...)
+BrainMate explains like a person.
 
-Add:
-
-const voice_text = formatForVoice(
-result.simple_explanation + " " + result.real_life_analogy
-);
-
-Return it in response:
-
-voice_text: voice_text
+«“Okay, this looks confusing at first… but here’s the simple idea.”»
 
 ---
 
-FRONTEND CHANGE
+🛠 Tech Stack
 
-Update speak():
-
-function speak(text) {
-const utterance = new SpeechSynthesisUtterance(text);
-
-utterance.rate = 0.92;
-utterance.pitch = 1.05;
-
-const voices = speechSynthesis.getVoices();
-
-utterance.voice =
-voices.find(v => v.name.includes('Google UK English Female')) ||
-voices.find(v => v.name.includes('Google')) ||
-voices[0];
-
-speechSynthesis.cancel();
-speechSynthesis.speak(utterance);
-}
-
-Use:
-
-speak(data.voice_text || data.simple_explanation)
+- Next.js (API + frontend)
+- Groq / OpenAI APIs
+- MongoDB
+- Vercel (deployment)
 
 ---
 
-RULES
+⚙️ How to Run Locally
 
-- DO NOT break streaming API
-- DO NOT change database logic
-- DO NOT remove features
-- ONLY improve clarity, tone, and voice
+git clone https://github.com/nsd999/BrainMate
+cd BrainMate
+npm install
+npm run dev
 
 ---
 
-EXPECTED RESULT
+⚠️ Current Improvements (WIP)
 
-- AI feels like a real smart friend
-- Not robotic or textbook
-- Voice sounds natural
-- Better engagement
+- Clean API structure
+- Remove duplicate functions
+- Improve conversational tone
+- Upgrade voice experience
+
+---
+
+🎯 Vision
+
+Make learning feel like talking to a smart friend, not reading a textbook.
+
+---
+
+👤 Author
+
+Sai Dheeraj Nalkari 
