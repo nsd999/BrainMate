@@ -566,17 +566,20 @@ try {
   // Final flush and save  
   flushUpdate();  
   const finalPartial = parsePartial(buffer);  
-  const finalResult = {  
-    topic: t,  
-    mode: m,  
-    language,  
-    generated_at: new Date().toISOString(),  
-    simple_explanation: finalPartial.simple_explanation,  
-    real_life_analogy: finalPartial.real_life_analogy,  
-    step_by_step: finalPartial.step_by_step,  
-    summary: finalPartial.summary,  
-    action_plan: finalPartial.action_plan  
-  };  
+  const finalResult = {
+  topic: t,
+  mode: m,
+  language,
+  generated_at: new Date().toISOString(),
+  hook: finalPartial.hook,
+  simple_explanation: finalPartial.simple_explanation,
+  exam: finalPartial.exam,
+  formulas: finalPartial.formulas,
+  step_by_step: finalPartial.step_by_step,
+  mistakes: finalPartial.mistakes,
+  revision: finalPartial.revision,
+  next: finalPartial.next
+};
   setResult(finalResult);  
   setActiveSection(null);  
 
