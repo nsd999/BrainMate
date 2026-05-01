@@ -103,11 +103,14 @@ active: null // which section is currently streaming
 };
 
 const sections = [
+{ tag: 'HOOK', key: 'hook', type: 'text' },
 { tag: 'SIMPLE', key: 'simple_explanation', type: 'text' },
-{ tag: 'ANALOGY', key: 'real_life_analogy', type: 'text' },
+{ tag: 'EXAM', key: 'exam', type: 'text' },
+{ tag: 'FORMULAS', key: 'formulas', type: 'bullets' },
 { tag: 'STEPS', key: 'step_by_step', type: 'bullets' },
-{ tag: 'SUMMARY', key: 'summary', type: 'text' },
-{ tag: 'ACTIONS', key: 'action_plan', type: 'actions' }
+{ tag: 'MISTAKES', key: 'mistakes', type: 'bullets' },
+{ tag: 'REVISION', key: 'revision', type: 'text' },
+{ tag: 'NEXT', key: 'next', type: 'bullets' }
 ];
 
 for (const s of sections) {
@@ -459,15 +462,18 @@ abortRef.current = ctrl;
 
 setLoading(true);  
 setStreaming(true);  
-setResult({  
-  topic: t,  
-  mode: m,  
-  simple_explanation: '',  
-  real_life_analogy: '',  
-  step_by_step: [],  
-  summary: '',  
-  action_plan: []  
-});  
+setResult({
+  topic: t,
+  mode: m,
+  hook: '',
+  simple_explanation: '',
+  exam: '',
+  formulas: [],
+  step_by_step: [],
+  mistakes: [],
+  revision: '',
+  next: []
+});
 setActiveSection('simple_explanation');  
 
 let buffer = '';  
