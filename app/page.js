@@ -481,16 +481,19 @@ let rafPending = false;
 const flushUpdate = () => {  
   rafPending = false;  
   const partial = parsePartial(buffer);  
-  setResult((prev) => ({  
-    ...(prev || {}),  
-    topic: t,  
-    mode: m,  
-    simple_explanation: partial.simple_explanation,  
-    real_life_analogy: partial.real_life_analogy,  
-    step_by_step: partial.step_by_step,  
-    summary: partial.summary,  
-    action_plan: partial.action_plan  
-  }));  
+  setResult((prev) => ({
+  ...(prev || {}),
+  topic: t,
+  mode: m,
+  hook: partial.hook,
+  simple_explanation: partial.simple_explanation,
+  exam: partial.exam,
+  formulas: partial.formulas,
+  step_by_step: partial.step_by_step,
+  mistakes: partial.mistakes,
+  revision: partial.revision,
+  next: partial.next
+}));
   setActiveSection(partial.active);  
 };  
 const scheduleFlush = () => {  
