@@ -20,27 +20,42 @@ export const metadata = {
 
 // Inline theme bootstrap to prevent flash of incorrect theme on load.
 const themeBootstrap = `
-(function(){
+(function () {
   try {
     var t = localStorage.getItem('brainmate.theme');
-    var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var prefersDark =
+      window.matchMedia &&
+      window.matchMedia('(prefers-color-scheme: dark)').matches;
+
     var dark = t ? t === 'dark' : prefersDark;
-    if (dark) document.documentElement.classList.add('dark');
-  } catch(e){}
+
+    if (dark) {
+      document.documentElement.classList.add('dark');
+    }
+  } catch (e) {}
 })();
 `;
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" className={inter.variable} suppressHydrationWarning>
+    <html
+      lang="en"
+      className={inter.variable}
+      suppressHydrationWarning
+    >
       <head>
-        <script dangerouslySetInnerHTML={{ __html: themeBootstrap }} />
+        <script
+          dangerouslySetInnerHTML={{ __html: themeBootstrap }}
+        />
       </head>
-      <body className="min-h-screen ...">
+
+      <body className="min-h-screen">
         {children}
+
         <Toaster position="top-center" />
+
         <Analytics />
       </body>
     </html>
   );
-}
+}                                                                                
