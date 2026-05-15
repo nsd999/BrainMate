@@ -69,14 +69,16 @@ toast.error('Could not copy');
 
 const formatForShare = (r) => {
 if (!r) return '';
-const steps = (r.step_by_step || []).map((s, i) => ${i + 1}. ${s}).join('\n');
+const steps = (r.step_by_step || [])
+  .map((s, i) => `${i + 1}. ${s}`)
+  .join('\n');
 const plan = (r.action_plan || [])
-.map((a, i) => ${i + 1}. ${a.step}${a.time ?  — ${a.time} : ''})
+.map((a, i) => `${i + 1}. ${a.step}${a.time ? ` — ${a.time}` : ''}`)
 .join('\n');
 return [
-BrainMate — ${r.topic},
+`BrainMate — ${r.topic}`,
 '',
-Simple Explanation:\n${r.simple_explanation},
+`Simple Explanation:\n${r.simple_explanation}`,
 '',
 Real-Life Analogy:\n${r.real_life_analogy},
 '',
@@ -103,18 +105,15 @@ active: null // which section is currently streaming
 };
 
 const sections = [
-{ tag: 'HOOK', key: 'hook', type: 'text' },
-{ tag: 'SIMPLE', key: 'simple_explanation', type: 'text' },
-{ tag: 'EXAM', key: 'exam', type: 'text' },
-{ tag: 'FORMULAS', key: 'formulas', type: 'bullets' },
-{ tag: 'STEPS', key: 'step_by_step', type: 'bullets' },
-{ tag: 'MISTAKES', key: 'mistakes', type: 'bullets' },
-{ tag: 'REVISION', key: 'revision', type: 'text' },
-{ tag: 'NEXT', key: 'next', type: 'bullets' }
+  { tag: 'SIMPLE', key: 'simple_explanation', type: 'text' },
+  { tag: 'ANALOGY', key: 'real_life_analogy', type: 'text' },
+  { tag: 'STEPS', key: 'step_by_step', type: 'bullets' },
+  { tag: 'SUMMARY', key: 'summary', type: 'text' },
+  { tag: 'ACTIONS', key: 'action_plan', type: 'actions' }
 ];
 
 for (const s of sections) {
-const openTag = <<${s.tag}>>;
+const openTag = `<<${s.tag}>>`;
 const startIdx = buffer.indexOf(openTag);
 if (startIdx === -1) continue;
 const afterStart = startIdx + openTag.length;
@@ -138,7 +137,7 @@ if (s.type === 'text') {
     .map((l) => l.replace(/^\s*[-*]\s*/, '').trim())  
     .filter(Boolean)  
     .map((line) => {  
-      const m = line.match(/^([^]+)\]\s*(.*)$/);  
+      const m = line.match(/^\[([^\]]+)\]\s*(.*)$/);  
       if (m) return { time: m[1].trim(), step: m[2].trim() };  
       return { time: '', step: line };  
     });  
@@ -169,7 +168,7 @@ className={cn(
 'inline-flex items-center gap-1.5 text-xs transition-colors',
 isSpeaking ? 'text-[var(--bm-accent)]' : 'text-[var(--bm-text-soft)] hover:text-[var(--bm-text)]'
 )}
-aria-label={isSpeaking ? Stop speaking ${title} : Listen to ${title}}
+aria-label={isSpeaking ? `Stop speaking ${title}` : `Listen to ${title}`}
 >
 {isSpeaking ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
 {isSpeaking ? 'Stop' : 'Listen'}
@@ -179,7 +178,7 @@ aria-label={isSpeaking ? Stop speaking ${title} : Listen to ${title}}
 <button
 onClick={onCopy}
 className="inline-flex items-center gap-1.5 text-xs text-[var(--bm-text-soft)] hover:text-[var(--bm-text)] transition-colors"
-aria-label={Copy ${title}}
+aria-label={`Copy ${title}`}
 >
 <Copy className="h-3.5 w-3.5" />
 Copy
@@ -257,7 +256,7 @@ if (!uid) {
 // Use crypto.randomUUID if available, fallback to manual
 uid =
 (typeof crypto !== 'undefined' && crypto.randomUUID && crypto.randomUUID()) ||
-${Date.now()}-${Math.random().toString(36).slice(2, 12)};
+`${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
 localStorage.setItem('brainmate.user_id', uid);
 }
 } catch (e) {
@@ -273,7 +272,7 @@ let cancelled = false;
 (async () => {
 setHistoryLoading(true);
 try {
-const res = await fetch(/api/history?user_id=${encodeURIComponent(userId)});
+fetch(`/api/history?user_id=${encodeURIComponent(userId)}`);
 const data = await res.json();
 if (!cancelled && Array.isArray(data?.items)) {
 // Map server entries to existing UI shape
@@ -749,7 +748,7 @@ const plan = (r.action_plan || [])
 .map((a, i) => ${i + 1}. **${a.step}**${a.time ?  (${a.time}) : ''})
 .join('\n');
 return [
-# BrainMate — ${r.topic},
+'# BrainMate — ${r.topic}`,
 ,   `_Mode: ${r.mode}${r.language ? ` · Language: ${r.language}` : ''}${r.generated_at ? ` · Generated: ${new Date(r.generated_at).toLocaleString()}` : ''}_`,   ,
 ## Simple Explanation,
 r.simple_explanation || '',
