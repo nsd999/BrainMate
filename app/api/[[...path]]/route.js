@@ -5,11 +5,13 @@ import { getHistoryCollection, getStatsCollection } from '@/lib/mongo';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+// ============================================================================
+// CONFIGURATION & PROMPTS
+// ============================================================================
+
 const MODE_INSTRUCTIONS = {
   kid: 'Explain like you are teaching a curious 8-year-old. Use very simple words, fun examples from daily life (toys, school, games), and short sentences. Make it feel friendly and playful.',
-  
   student: 'Explain clearly like a good teacher. Use simple language, step-by-step logic, and relatable examples from school, exams, or real-world situations. Avoid unnecessary complexity.',
-  
   pro: 'Explain with clarity and depth like a mentor. Use real-world scenarios, practical applications, and clear reasoning. Keep it concise but insightful.'
 };
 
@@ -20,6 +22,12 @@ Do not repeat sections.
 Do not include tags inside other sections.
 No markdown.
 No extra text outside the tags.
+
+IMPORTANT FACTUALITY RULES:
+- Never invent facts about real people
+- If unsure, say you do not know
+- Do not guess careers or achievements
+- Accuracy is more important than confidence
 
 <<SIMPLE>>
 2-3 sentence easy explanation. Think of it like explaining to a friend over coffee. Use casual, natural language.
@@ -119,13 +127,17 @@ Rules:
 - No "all of the above" / "none of the above".
 - Do not repeat the explanation; test understanding.`;
 
+// ============================================================================
+// UTILITY: PROMPT BUILDERS
+// ============================================================================
+
 function buildUserPrompt(topic, mode, language) {
   const modeInstruction = MODE_INSTRUCTIONS[mode] || MODE_INSTRUCTIONS.student;
   const lang = (language || 'English').toString();
   const langLine =
     lang.toLowerCase() === 'english'
       ? ''
-      : `\n\nIMPORTANT: Write all output (including bullets and time labels) in ${lang}. Translate the action time labels too. Keep the section tags (<<SIMPLE>>, <<END>>, etc.) in English exactly as-is. Do NOT translate tags.`;
+      : `\n\nIMPORTANT: Write all output (including bullets and time labels) in ${lang}. Translate the action time labels too. Keep the section tags (<<SIMPLE>>, <<END>>, etc.) in English exactly as shown.`;
   return `Topic: ${topic}
 
 Audience mode: ${mode.toUpperCase()}
@@ -151,6 +163,111 @@ ${context || '(no prior context — generate from general knowledge)'}
 
 Now produce ONLY the 4 tagged quiz questions.`;
 }
+
+// ============================================================================
+// STEP 1: LLM CONFIG WITH PRIMARY OPENAI + FALLBACK GROQ
+// ============================================================================
+
+function getLLMConfig(prefer = 'openai') {
+  const openaiKey = process.env.OPENAI_API_KEY;
+  const groqKey = process.env.GROQ_API_KEY;
+
+  // PRIMARY: OpenAI
+  if (prefer === 'openai' && openaiKey) {
+    return {
+      provider: 'openai',
+      baseUrl: 'https://api.openai.com/v1',
+      apiKey: openaiKey,
+      model: 'gpt-4o-mini'
+    };
+  }
+
+  // FALLBACK: Groq
+  if (groqKey) {
+    return {
+      provider: 'groq',
+      baseUrl: 'https://api.groq.com/openai/v1',
+      apiKey: groqKey,
+      model: 'llama-3.1-8b-instant'
+    };
+  }
+
+  throw new Error('No LLM API keys configured. Set OPENAI_API_KEY or GROQ_API_KEY.');
+}
+
+// ============================================================================
+// STEP 2 & 3: SAFE PARSER WITH VALIDATION
+// ============================================================================
+
+function parseSections(text) {
+  function grabSection(tag) {
+    const start = `<<${tag}>>`;
+    const end = `<<END>>`;
+
+    const startIndex = text.indexOf(start);
+    if (startIndex === -1) return '';
+
+    const sliced = text.slice(startIndex + start.length);
+    const endIndex = sliced.indexOf(end);
+    if (endIndex === -1) return '';
+
+    return sliced.slice(0, endIndex).trim();
+  }
+
+  const stepsRaw = grabSection('STEPS');
+  const actionsRaw = grabSection('ACTIONS');
+
+  const step_by_step = stepsRaw
+    .split('\n')
+    .map((l) => l.replace(/^\s*[-*]\s*/, '').trim())
+    .filter(Boolean);
+
+  const action_plan = actionsRaw
+    .split('\n')
+    .map((l) => l.replace(/^\s*[-*]\s*/, '').trim())
+    .filter(Boolean)
+    .map((line) => {
+      const m = line.match(/^\[([^\]]+)\]\s*(.*)$/);
+      if (m) {
+        return {
+          time: m[1].trim(),
+          step: m[2].trim()
+        };
+      }
+      return {
+        time: '',
+        step: line
+      };
+    });
+
+  return {
+    simple_explanation: grabSection('SIMPLE'),
+    real_life_analogy: grabSection('ANALOGY'),
+    step_by_step,
+    summary: grabSection('SUMMARY'),
+    action_plan
+  };
+}
+
+function validateResponse(data) {
+  return (
+    data &&
+    typeof data.simple_explanation === 'string' &&
+    data.simple_explanation.length > 0 &&
+    typeof data.real_life_analogy === 'string' &&
+    data.real_life_analogy.length > 0 &&
+    Array.isArray(data.step_by_step) &&
+    data.step_by_step.length > 0 &&
+    typeof data.summary === 'string' &&
+    data.summary.length > 0 &&
+    Array.isArray(data.action_plan) &&
+    data.action_plan.length > 0
+  );
+}
+
+// ============================================================================
+// STEP 4: QUIZ PARSER
+// ============================================================================
 
 function parseQuiz(text) {
   const out = [];
@@ -180,172 +297,199 @@ function parseQuiz(text) {
   return out;
 }
 
-function getLLMConfig() {
-  const groqKey = process.env.GROQ_API_KEY;
-  const openaiKey = process.env.OPENAI_API_KEY;
-  const emergentKey = process.env.EMERGENT_LLM_KEY;
-
-  // ✅ PRIORITY 1: GROQ (FREE)
-  if (groqKey) {
-    return {
-      baseUrl: 'https://api.groq.com/openai/v1',
-      apiKey: groqKey,
-      model: 'llama-3.1-8b-instant'
-    };
-  }
-
-  // fallback options (keep them)
-  if (emergentKey) {
-    return {
-      baseUrl: 'https://integrations.emergentagent.com/llm',
-      apiKey: emergentKey,
-      model: 'gpt-4o-mini'
-    };
-  }
-
-  if (openaiKey) {
-    return {
-      baseUrl: 'https://api.openai.com/v1',
-      apiKey: openaiKey,
-      model: 'gpt-4o-mini'
-    };
-  }
-
-  throw new Error('No LLM key configured (set GROQ_API_KEY).');
-}
-
-// ----------- Non-streaming path (kept for compatibility) -----------
+// ============================================================================
+// STEP 5: CALL LLM WITH PRIMARY + FALLBACK
+// ============================================================================
 
 async function callLLMOnce(topic, mode, language) {
-  const { baseUrl, apiKey, model } = getLLMConfig();
-  const res = await fetch(`${baseUrl}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      model,
-      temperature: 0.8,
-      stream: false,
-      messages: [
-        { role: 'system', content: SECTION_SYSTEM_PROMPT },
-        { role: 'user', content: buildUserPrompt(topic, mode, language) }
-      ]
-    })
-  });
+  let lastError = null;
 
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`LLM error ${res.status}: ${errText}`);
-  }
-  const data = await res.json();
-  const content = data?.choices?.[0]?.message?.content || '';
-  return parseSections(content);
-}
-
-// ----------- Streaming path (SSE passthrough) -----------
-
-async function* streamChatCompletion(messages, { temperature = 0.8 } = {}) {
-  const { baseUrl, apiKey, model } = getLLMConfig();
-  const upstream = await fetch(`${baseUrl}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      model,
-      temperature,
-      stream: true,
-      messages
-    })
-  });
-
-  if (!upstream.ok || !upstream.body) {
-    const errText = await upstream.text().catch(() => '');
-    throw new Error(`LLM error ${upstream.status}: ${errText}`);
-  }
-
-  const reader = upstream.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = '';
-  while (true) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    let nlIdx;
-    while ((nlIdx = buffer.indexOf('\n')) !== -1) {
-      const line = buffer.slice(0, nlIdx).trim();
-      buffer = buffer.slice(nlIdx + 1);
-      if (!line) continue;
-      if (!line.startsWith('data:')) continue;
-      const payload = line.slice(5).trim();
-      if (payload === '[DONE]') return;
-      try {
-        const json = JSON.parse(payload);
-        const delta = json?.choices?.[0]?.delta?.content;
-        if (typeof delta === 'string' && delta.length) {
-          yield delta;
-        }
-      } catch (e) {
-        // ignore malformed chunk
-      }
-    }
-  }
-}
-
-// ----------- Section parser (from full text) -----------
-
-function parseSections(text) {
-
-  function grabSection(tag) {
-    const start = `<<${tag}>>`;
-    const end = `<<END>>`;
-
-    const startIndex = text.indexOf(start);
-
-    if (startIndex === -1) return '';
-
-    const sliced = text.slice(startIndex + start.length);
-
-    const endIndex = sliced.indexOf(end);
-
-    if (endIndex === -1) return '';
-
-    return sliced.slice(0, endIndex).trim();
-  }
-
-  const grab = (tag) => grabSection(tag);
-  const stepsRaw = grab('STEPS');
-  const actionsRaw = grab('ACTIONS');
-
-  const step_by_step = stepsRaw
-    .split('\n')
-    .map((l) => l.replace(/^\s*[-*]\s*/, '').trim())
-    .filter(Boolean);
-
-  const action_plan = actionsRaw
-    .split('\n')
-    .map((l) => l.replace(/^\s*[-*]\s*/, '').trim())
-    .filter(Boolean)
-    .map((line) => {
-      const m = line.match(/^\[([^\]]+)\]\s*(.*)$/);
-      if (m) return { time: m[1].trim(), step: m[2].trim() };
-      return { time: '', step: line };
+  // Try OpenAI first
+  try {
+    const config = getLLMConfig('openai');
+    const res = await fetch(`${config.baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${config.apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: config.model,
+        temperature: 0.8,
+        stream: false,
+        messages: [
+          { role: 'system', content: SECTION_SYSTEM_PROMPT },
+          { role: 'user', content: buildUserPrompt(topic, mode, language) }
+        ]
+      })
     });
 
-  return {
-    simple_explanation: grab('SIMPLE'),
-    real_life_analogy: grab('ANALOGY'),
-    step_by_step,
-    summary: grab('SUMMARY'),
-    action_plan
-  };
+    if (res.ok) {
+      const data = await res.json();
+      const content = data?.choices?.[0]?.message?.content || '';
+      const parsed = parseSections(content);
+
+      if (validateResponse(parsed)) {
+        return parsed;
+      }
+      throw new Error('Response validation failed');
+    }
+
+    lastError = `OpenAI error ${res.status}: ${await res.text()}`;
+  } catch (err) {
+    lastError = err?.message || 'OpenAI request failed';
+  }
+
+  // Fallback to Groq
+  try {
+    const config = getLLMConfig('groq');
+    const res = await fetch(`${config.baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${config.apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: config.model,
+        temperature: 0.8,
+        stream: false,
+        messages: [
+          { role: 'system', content: SECTION_SYSTEM_PROMPT },
+          { role: 'user', content: buildUserPrompt(topic, mode, language) }
+        ]
+      })
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      const content = data?.choices?.[0]?.message?.content || '';
+      const parsed = parseSections(content);
+
+      if (validateResponse(parsed)) {
+        return parsed;
+      }
+      throw new Error('Response validation failed');
+    }
+
+    throw new Error(`Groq error ${res.status}`);
+  } catch (err) {
+    throw new Error(`All LLM providers failed. Primary: ${lastError}. Fallback: ${err?.message}`);
+  }
 }
 
+// ============================================================================
+// STREAMING: CHAT COMPLETION WITH FALLBACK
+// ============================================================================
+
+async function* streamChatCompletion(messages, { temperature = 0.8, providerPreference = 'openai' } = {}) {
+  let lastError = null;
+
+  // Try primary provider
+  try {
+    const config = getLLMConfig(providerPreference);
+    const upstream = await fetch(`${config.baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${config.apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: config.model,
+        temperature,
+        stream: true,
+        messages
+      })
+    });
+
+    if (!upstream.ok) {
+      throw new Error(`${config.provider} error ${upstream.status}`);
+    }
+
+    if (!upstream.body) {
+      throw new Error(`${config.provider} no response body`);
+    }
+
+    yield* _streamFromResponse(upstream);
+    return;
+  } catch (err) {
+    lastError = err?.message || 'Primary provider failed';
+  }
+
+  // Fallback to alternate provider
+  try {
+    const fallbackProvider = providerPreference === 'openai' ? 'groq' : 'openai';
+    const config = getLLMConfig(fallbackProvider);
+    const upstream = await fetch(`${config.baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${config.apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: config.model,
+        temperature,
+        stream: true,
+        messages
+      })
+    });
+
+    if (!upstream.ok || !upstream.body) {
+      throw new Error(`Fallback provider error ${upstream.status}`);
+    }
+
+    yield* _streamFromResponse(upstream);
+    return;
+  } catch (err) {
+    throw new Error(`Streaming failed. Primary: ${lastError}. Fallback: ${err?.message}`);
+  }
+}
+
+// Helper: read streaming response
+async function* _streamFromResponse(response) {
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      let nlIdx;
+
+      while ((nlIdx = buffer.indexOf('\n')) !== -1) {
+        const line = buffer.slice(0, nlIdx).trim();
+        buffer = buffer.slice(nlIdx + 1);
+
+        if (!line) continue;
+        if (!line.startsWith('data:')) continue;
+
+        const payload = line.slice(5).trim();
+        if (payload === '[DONE]') return;
+
+        try {
+          const json = JSON.parse(payload);
+          const delta = json?.choices?.[0]?.delta?.content;
+          if (typeof delta === 'string' && delta.length) {
+            yield delta;
+          }
+        } catch (e) {
+          // Ignore malformed chunks
+        }
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+}
+
+// ============================================================================
+// FOLLOW-UPS GENERATION
+// ============================================================================
+
 async function generateFollowUps(topic, explanation) {
-  const { baseUrl, apiKey, model } = getLLMConfig();
+  const { baseUrl, apiKey, model } = getLLMConfig('openai');
 
   try {
     const res = await fetch(`${baseUrl}/chat/completions`, {
@@ -364,7 +508,6 @@ async function generateFollowUps(topic, explanation) {
       })
     });
 
-    // ❌ API failed
     if (!res.ok) {
       console.error(`[generateFollowUps] API error ${res.status}`);
       return getFallbackFollowUps();
@@ -378,13 +521,12 @@ async function generateFollowUps(topic, explanation) {
       return getFallbackFollowUps();
     }
 
-    // 🔥 SAFE PARSING (main fix)
+    // Safe parsing with fallback
     let parsed = [];
 
     try {
       parsed = JSON.parse(content);
     } catch {
-      // try extracting JSON from messy response
       const match = content.match(/\[.*\]/s);
       if (match) {
         try {
@@ -400,31 +542,35 @@ async function generateFollowUps(topic, explanation) {
     }
 
     return getFallbackFollowUps();
-
   } catch (err) {
     console.error('[generateFollowUps error]', err?.message || err);
     return getFallbackFollowUps();
   }
 }
 
-// ✅ fallback function (cleaner)
 function getFallbackFollowUps() {
   return [
-    "Can you explain this simply?",
-    "Give a real-life example",
-    "Why is this important?",
-    "How can I use this?"
+    'Can you explain this simply?',
+    'Give a real-life example',
+    'Why is this important?',
+    'How can I use this?'
   ];
 }
 
-// ----------- Handlers -----------
+// ============================================================================
+// ROUTE HANDLERS
+// ============================================================================
 
 export async function GET(request, { params }) {
   const pathArr = params?.path || [];
   const route = pathArr.join('/');
 
   if (route === '' || route === 'health') {
-    return NextResponse.json({ ok: true, service: 'BrainMate API', time: new Date().toISOString() });
+    return NextResponse.json({
+      ok: true,
+      service: 'BrainMate API',
+      time: new Date().toISOString()
+    });
   }
 
   // GET /api/history?user_id=xxx&limit=50
@@ -433,23 +579,26 @@ export async function GET(request, { params }) {
       const url = new URL(request.url);
       const userId = (url.searchParams.get('user_id') || '').trim();
       const limit = Math.min(parseInt(url.searchParams.get('limit') || '50', 10), 200);
+
       if (!userId) {
         return NextResponse.json({ error: 'user_id is required' }, { status: 400 });
       }
+
       const col = await getHistoryCollection();
       const items = await col
         .find({ user_id: userId }, { projection: { _id: 0 } })
         .sort({ favorite: -1, favorited_at: -1, created_at: -1 })
         .limit(limit)
         .toArray();
+
       return NextResponse.json({ user_id: userId, count: items.length, items });
     } catch (err) {
       console.error('[history GET error]', err);
-      return NextResponse.json({ error: err?.message || 'Failed to load history' }, { status: 500 });
+      return NextResponse.json({ error: 'Failed to load history' }, { status: 500 });
     }
   }
 
-  return NextResponse.json({ error: 'Not found', route }, { status: 404 });
+  return NextResponse.json({ error: 'Not found' }, { status: 404 });
 }
 
 export async function DELETE(request, { params }) {
@@ -459,6 +608,7 @@ export async function DELETE(request, { params }) {
   try {
     const url = new URL(request.url);
     const userId = (url.searchParams.get('user_id') || '').trim();
+
     if (!userId) {
       return NextResponse.json({ error: 'user_id is required' }, { status: 400 });
     }
@@ -475,16 +625,18 @@ export async function DELETE(request, { params }) {
       const id = pathArr[1];
       const col = await getHistoryCollection();
       const r = await col.deleteOne({ user_id: userId, id });
+
       if (r.deletedCount === 0) {
         return NextResponse.json({ error: 'Not found' }, { status: 404 });
       }
+
       return NextResponse.json({ ok: true });
     }
 
-    return NextResponse.json({ error: 'Not found', route }, { status: 404 });
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
   } catch (err) {
     console.error('[DELETE error]', err);
-    return NextResponse.json({ error: err?.message || 'Internal error' }, { status: 500 });
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
   }
 }
 
@@ -493,55 +645,23 @@ export async function POST(request, { params }) {
   const route = pathArr.join('/');
 
   try {
-    if (route === 'explain' || route === 'explain/stream') {
+    // ========== POST /api/explain (NON-STREAMING) ==========
+    if (route === 'explain') {
       const body = await request.json();
       const topic = (body?.topic || '').toString().trim();
       const mode = (body?.mode || 'student').toString().toLowerCase();
       const language = (body?.language || 'English').toString();
-      const wantsStream = route === 'explain/stream' || body?.stream === true;
 
-      if (!topic) return NextResponse.json({ error: 'topic is required' }, { status: 400 });
-      if (topic.length > 500) return NextResponse.json({ error: 'topic too long (max 500 chars)' }, { status: 400 });
-
-      if (wantsStream) {
-        const encoder = new TextEncoder();
-        const stream = new ReadableStream({
-          async start(controller) {
-            const send = (event, data) => {
-              controller.enqueue(
-                encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
-              );
-            };
-            try {
-              send('meta', { topic, mode, language, started_at: new Date().toISOString() });
-              const messages = [
-                { role: 'system', content: SECTION_SYSTEM_PROMPT },
-                { role: 'user', content: buildUserPrompt(topic, mode, language) }
-              ];
-              for await (const delta of streamChatCompletion(messages)) {
-                send('token', { text: delta });
-              }
-              send('done', { finished_at: new Date().toISOString() });
-            } catch (err) {
-              send('error', { message: err?.message || 'stream error' });
-            } finally {
-              controller.close();
-            }
-          }
-        });
-        return new Response(stream, {
-          headers: {
-            'Content-Type': 'text/event-stream; charset=utf-8',
-            'Cache-Control': 'no-cache, no-transform',
-            Connection: 'keep-alive',
-            'X-Accel-Buffering': 'no'
-          }
-        });
+      if (!topic) {
+        return NextResponse.json({ error: 'topic is required' }, { status: 400 });
+      }
+      if (topic.length > 500) {
+        return NextResponse.json({ error: 'topic too long (max 500 chars)' }, { status: 400 });
       }
 
       const result = await callLLMOnce(topic, mode, language);
 
-      // 🔥 generate follow-ups based on explanation
+      // Generate follow-ups
       const followUps = await generateFollowUps(
         topic,
         result.simple_explanation + '\n' + result.real_life_analogy
@@ -557,7 +677,61 @@ export async function POST(request, { params }) {
       });
     }
 
-    // -------- Follow-up chat (streaming) --------
+    // ========== POST /api/explain/stream (STREAMING) ==========
+    if (route === 'explain/stream') {
+      const body = await request.json();
+      const topic = (body?.topic || '').toString().trim();
+      const mode = (body?.mode || 'student').toString().toLowerCase();
+      const language = (body?.language || 'English').toString();
+
+      if (!topic) {
+        return NextResponse.json({ error: 'topic is required' }, { status: 400 });
+      }
+      if (topic.length > 500) {
+        return NextResponse.json({ error: 'topic too long (max 500 chars)' }, { status: 400 });
+      }
+
+      const encoder = new TextEncoder();
+      const stream = new ReadableStream({
+        async start(controller) {
+          const send = (event, data) => {
+            controller.enqueue(
+              encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
+            );
+          };
+
+          try {
+            send('meta', { topic, mode, language, started_at: new Date().toISOString() });
+
+            const messages = [
+              { role: 'system', content: SECTION_SYSTEM_PROMPT },
+              { role: 'user', content: buildUserPrompt(topic, mode, language) }
+            ];
+
+            for await (const delta of streamChatCompletion(messages, { providerPreference: 'openai' })) {
+              send('token', { text: delta });
+            }
+
+            send('done', { finished_at: new Date().toISOString() });
+          } catch (err) {
+            send('error', { message: 'Stream generation failed' });
+          } finally {
+            controller.close();
+          }
+        }
+      });
+
+      return new Response(stream, {
+        headers: {
+          'Content-Type': 'text/event-stream; charset=utf-8',
+          'Cache-Control': 'no-cache, no-transform',
+          Connection: 'keep-alive',
+          'X-Accel-Buffering': 'no'
+        }
+      });
+    }
+
+    // ========== POST /api/chat/stream (FOLLOW-UP CHAT STREAMING) ==========
     if (route === 'chat/stream') {
       const body = await request.json();
       const topic = (body?.topic || '').toString().trim();
@@ -566,14 +740,19 @@ export async function POST(request, { params }) {
       const context = (body?.context || '').toString();
       const messages = Array.isArray(body?.messages) ? body.messages : [];
 
-      if (!topic) return NextResponse.json({ error: 'topic is required' }, { status: 400 });
-      if (messages.length === 0) return NextResponse.json({ error: 'messages is required' }, { status: 400 });
+      if (!topic) {
+        return NextResponse.json({ error: 'topic is required' }, { status: 400 });
+      }
+      if (messages.length === 0) {
+        return NextResponse.json({ error: 'messages is required' }, { status: 400 });
+      }
 
       const modeInstruction = MODE_INSTRUCTIONS[mode] || MODE_INSTRUCTIONS.student;
       const langLine =
         language && language.toLowerCase() !== 'english'
           ? `\nIMPORTANT: Respond in ${language}.`
           : '';
+
       const chatSystem = `You are BrainMate, a friendly AI tutor answering follow-up questions about an explanation you just gave.
 
 Original topic: ${topic}
@@ -591,10 +770,10 @@ Rules:
 - NEVER respond with JSON or tagged sections — this is a normal conversation.
 - If helpful, use short bullets, but don't over-format.`;
 
-      // Filter and normalize messages to role/content only
+      // Filter and normalize messages
       const safeMessages = messages
         .filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
-        .slice(-20) // keep last 20 turns max
+        .slice(-20)
         .map((m) => ({ role: m.role, content: m.content }));
 
       const fullMessages = [{ role: 'system', content: chatSystem }, ...safeMessages];
@@ -607,19 +786,23 @@ Rules:
               encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
             );
           };
+
           try {
             send('meta', { started_at: new Date().toISOString() });
-            for await (const delta of streamChatCompletion(fullMessages, { temperature: 0.8 })) {
+
+            for await (const delta of streamChatCompletion(fullMessages, { temperature: 0.8, providerPreference: 'openai' })) {
               send('token', { text: delta });
             }
+
             send('done', { finished_at: new Date().toISOString() });
           } catch (err) {
-            send('error', { message: err?.message || 'stream error' });
+            send('error', { message: 'Stream generation failed' });
           } finally {
             controller.close();
           }
         }
       });
+
       return new Response(stream, {
         headers: {
           'Content-Type': 'text/event-stream; charset=utf-8',
@@ -630,15 +813,19 @@ Rules:
       });
     }
 
-    // -------- Save history (cross-device via user_id) --------
+    // ========== POST /api/history (SAVE HISTORY) ==========
     if (route === 'history') {
       const body = await request.json();
       const userId = (body?.user_id || '').toString().trim();
       const payload = body?.payload || null;
-      if (!userId) return NextResponse.json({ error: 'user_id is required' }, { status: 400 });
+
+      if (!userId) {
+        return NextResponse.json({ error: 'user_id is required' }, { status: 400 });
+      }
       if (!payload || typeof payload !== 'object') {
         return NextResponse.json({ error: 'payload is required' }, { status: 400 });
       }
+
       const id = (body?.id || uuidv4()).toString();
       const doc = {
         id,
@@ -650,35 +837,40 @@ Rules:
         created_at: body?.created_at || new Date().toISOString(),
         payload
       };
+
       const col = await getHistoryCollection();
       await col.updateOne({ id }, { $set: doc }, { upsert: true });
+
       return NextResponse.json({ ok: true, id, entry: doc });
     }
 
-    // -------- Toggle favorite on a history entry --------
+    // ========== POST /api/history/:id/favorite (TOGGLE FAVORITE) ==========
     if (pathArr[0] === 'history' && pathArr[1] && pathArr[2] === 'favorite') {
       const id = pathArr[1];
       const body = await request.json();
       const userId = (body?.user_id || '').toString().trim();
       const favorite = !!body?.favorite;
+
       if (!userId) {
         return NextResponse.json({ error: 'user_id is required' }, { status: 400 });
       }
+
       const col = await getHistoryCollection();
       const r = await col.updateOne(
         { id, user_id: userId },
         { $set: { favorite, favorited_at: favorite ? new Date().toISOString() : null } }
       );
+
       if (r.matchedCount === 0) {
         return NextResponse.json({ error: 'Not found' }, { status: 404 });
       }
+
       return NextResponse.json({ ok: true, id, favorite });
     }
 
-    return NextResponse.json({ error: 'Not found', route }, { status: 404 });
-
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
   } catch (err) {
     console.error('[BrainMate API error]', err);
-    return NextResponse.json({ error: err?.message || 'Internal error' }, { status: 500 });
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
   }
 }
