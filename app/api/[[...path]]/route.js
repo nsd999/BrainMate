@@ -15,7 +15,11 @@ const MODE_INSTRUCTIONS = {
 
 const SECTION_SYSTEM_PROMPT = `You are BrainMate, an AI tutor. Your job is to explain concepts like a smart, friendly person — not like a textbook.
 
-CRITICAL: Output ONLY these 5 tagged sections. No headings, no markdown, no text outside tags.
+Return exactly these 5 sections once each.
+Do not repeat sections.
+Do not include tags inside other sections.
+No markdown.
+No extra text outside the tags.
 
 <<SIMPLE>>
 2-3 sentence easy explanation. Think of it like explaining to a friend over coffee. Use casual, natural language.
@@ -294,11 +298,25 @@ async function* streamChatCompletion(messages, { temperature = 0.8 } = {}) {
 // ----------- Section parser (from full text) -----------
 
 function parseSections(text) {
-  const grab = (tag) => {
-    const re = new RegExp(`<<${tag}>>([\\s\\S]*?)<<END>>`, 'i');
-    const m = text.match(re);
-    return m ? m[1].trim() : '';
-  };
+
+  function grabSection(tag) {
+    const start = `<<${tag}>>`;
+    const end = `<<END>>`;
+
+    const startIndex = text.indexOf(start);
+
+    if (startIndex === -1) return '';
+
+    const sliced = text.slice(startIndex + start.length);
+
+    const endIndex = sliced.indexOf(end);
+
+    if (endIndex === -1) return '';
+
+    return sliced.slice(0, endIndex).trim();
+  }
+
+  const grab = (tag) => grabSection(tag);
   const stepsRaw = grab('STEPS');
   const actionsRaw = grab('ACTIONS');
 
