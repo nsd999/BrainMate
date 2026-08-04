@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { History, X, Search, Star, Trash2, Clock, Sparkles, BookOpen } from 'lucide-react';
+import { History, X, Search, Star, Trash2, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
@@ -27,12 +27,12 @@ export default function HistorySidebar({
   });
 
   return (
-    <div className="fixed inset-y-0 right-0 z-50 flex w-full max-w-sm flex-col border-l border-border bg-background shadow-2xl animate-in slide-in-from-right duration-300">
+    <div className="fixed inset-y-0 right-0 z-50 flex w-full max-w-sm flex-col border-l border-border/80 bg-background shadow-2xl animate-in slide-in-from-right duration-200">
       {/* Sidebar Header */}
       <div className="flex items-center justify-between border-b border-border/60 px-4 py-3 bg-muted/20">
         <div className="flex items-center gap-2">
-          <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400">
-            <History className="h-4 w-4" />
+          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-muted text-foreground border border-border">
+            <History className="h-3.5 w-3.5" />
           </span>
           <div>
             <h3 className="text-sm font-bold text-foreground">Explanation History</h3>
@@ -43,7 +43,7 @@ export default function HistorySidebar({
           onClick={onClose}
           className="rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
         >
-          <X className="h-5 w-5" />
+          <X className="h-4.5 w-4.5" />
         </button>
       </div>
 
@@ -54,9 +54,9 @@ export default function HistorySidebar({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search saved topics..."
-            className="h-8 pl-8 text-xs bg-muted/30 rounded-lg"
+            className="h-8 pl-8 text-xs bg-card border-border rounded-lg"
           />
-          <Search className="absolute left-2.5 top-2 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
         </div>
 
         <div className="flex items-center gap-2">
@@ -64,12 +64,9 @@ export default function HistorySidebar({
             variant={filterFav ? 'default' : 'outline'}
             size="sm"
             onClick={() => setFilterFav(!filterFav)}
-            className={cn(
-              'h-7 text-[11px] gap-1 rounded-lg',
-              filterFav && 'bg-amber-500 text-white hover:bg-amber-600'
-            )}
+            className="h-7 text-[11px] gap-1 rounded-lg"
           >
-            <Star className={cn('h-3 w-3', filterFav ? 'fill-white' : 'text-amber-500')} />
+            <Star className={cn('h-3 w-3', filterFav && 'fill-current')} />
             Starred Only
           </Button>
         </div>
@@ -87,7 +84,7 @@ export default function HistorySidebar({
           filteredHistory.map((item) => (
             <div
               key={item.id}
-              className="group relative flex flex-col gap-1 rounded-xl border border-border/60 bg-card p-3 transition-all hover:border-purple-500/40 hover:bg-muted/40"
+              className="group relative flex flex-col gap-1 rounded-xl border border-border/60 bg-card p-3 transition-all hover:border-foreground/30 hover:bg-muted/30"
             >
               <div className="flex items-center justify-between">
                 <button
@@ -95,7 +92,7 @@ export default function HistorySidebar({
                     onSelectHistory(item);
                     onClose();
                   }}
-                  className="text-left font-semibold text-xs text-foreground line-clamp-1 hover:text-purple-600 dark:hover:text-purple-400"
+                  className="text-left font-semibold text-xs text-foreground line-clamp-1 hover:underline"
                 >
                   {item.topic}
                 </button>
@@ -121,7 +118,7 @@ export default function HistorySidebar({
               </div>
 
               <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-1 border-t border-border/30 mt-1">
-                <span className="uppercase font-semibold text-purple-600 dark:text-purple-400">
+                <span className="uppercase font-semibold text-muted-foreground">
                   {item.mode}
                 </span>
                 <span className="flex items-center gap-1">

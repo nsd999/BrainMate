@@ -377,6 +377,123 @@ async function callLLMOnce(topic, mode, language) {
   }
 }
 
+function getFallbackQuiz(topic) {
+  return [
+    {
+      index: 1,
+      question: `What is the core idea behind ${topic}?`,
+      options: [
+        { letter: 'A', text: 'It simplifies processes using core principles' },
+        { letter: 'B', text: 'It replaces all traditional models completely' },
+        { letter: 'C', text: 'It only works in theoretical scenarios' },
+        { letter: 'D', text: 'It requires manual human intervention at all times' }
+      ],
+      answer: 'A',
+      explain: `The main goal of ${topic} is to simplify and optimize core principles.`
+    },
+    {
+      index: 2,
+      question: `Which of the following best describes an advantage of ${topic}?`,
+      options: [
+        { letter: 'A', text: 'Higher efficiency and clearer structure' },
+        { letter: 'B', text: 'Unlimited resource consumption' },
+        { letter: 'C', text: 'Increased error rates' },
+        { letter: 'D', text: 'Slower response times' }
+      ],
+      answer: 'A',
+      explain: `${topic} provides structured clarity and improved efficiency.`
+    },
+    {
+      index: 3,
+      question: `In real-world applications, how is ${topic} typically applied?`,
+      options: [
+        { letter: 'A', text: 'To solve practical problems step-by-step' },
+        { letter: 'B', text: 'Only in fiction books' },
+        { letter: 'C', text: 'Without any data or inputs' },
+        { letter: 'D', text: 'By ignoring feedback' }
+      ],
+      answer: 'A',
+      explain: `Real-world implementation of ${topic} focuses on step-by-step practical problem solving.`
+    },
+    {
+      index: 4,
+      question: `What is a key takeaway when learning about ${topic}?`,
+      options: [
+        { letter: 'A', text: 'Understanding foundational concepts before diving deep' },
+        { letter: 'B', text: 'Memorizing complex terms without understanding' },
+        { letter: 'C', text: 'Avoiding practice and real examples' },
+        { letter: 'D', text: 'Assuming it cannot be improved' }
+      ],
+      answer: 'A',
+      explain: `Building a solid understanding of foundations is key for ${topic}.`
+    }
+  ];
+}
+
+async function callQuizLLM(topic, mode, language, context) {
+  try {
+    const config = getLLMConfig('openai');
+    const res = await fetch(`${config.baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${config.apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: config.model,
+        temperature: 0.7,
+        messages: [
+          { role: 'system', content: QUIZ_SYSTEM_PROMPT },
+          { role: 'user', content: buildQuizUserPrompt(topic, mode, language, context) }
+        ]
+      })
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      const content = data?.choices?.[0]?.message?.content || '';
+      const questions = parseQuiz(content);
+      if (Array.isArray(questions) && questions.length > 0) {
+        return questions;
+      }
+    }
+  } catch (err) {
+    console.error('[callQuizLLM OpenAI error]', err);
+  }
+
+  try {
+    const config = getLLMConfig('groq');
+    const res = await fetch(`${config.baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${config.apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: config.model,
+        temperature: 0.7,
+        messages: [
+          { role: 'system', content: QUIZ_SYSTEM_PROMPT },
+          { role: 'user', content: buildQuizUserPrompt(topic, mode, language, context) }
+        ]
+      })
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      const content = data?.choices?.[0]?.message?.content || '';
+      const questions = parseQuiz(content);
+      if (Array.isArray(questions) && questions.length > 0) {
+        return questions;
+      }
+    }
+  } catch (err) {
+    console.error('[callQuizLLM Groq error]', err);
+  }
+
+  return getFallbackQuiz(topic);
+}
+
 // ============================================================================
 // STREAMING: CHAT COMPLETION WITH FALLBACK
 // ============================================================================
@@ -645,6 +762,22 @@ export async function POST(request, { params }) {
   const route = pathArr.join('/');
 
   try {
+    // ========== POST /api/quiz (QUIZ GENERATION) ==========
+    if (route === 'quiz') {
+      const body = await request.json();
+      const topic = (body?.topic || '').toString().trim();
+      const mode = (body?.mode || 'student').toString().toLowerCase();
+      const language = (body?.language || 'English').toString();
+      const context = (body?.context || '').toString();
+
+      if (!topic) {
+        return NextResponse.json({ error: 'topic is required' }, { status: 400 });
+      }
+
+      const questions = await callQuizLLM(topic, mode, language, context);
+      return NextResponse.json({ ok: true, topic, questions });
+    }
+
     // ========== POST /api/explain (NON-STREAMING) ==========
     if (route === 'explain') {
       const body = await request.json();
