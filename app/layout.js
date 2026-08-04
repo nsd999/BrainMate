@@ -13,6 +13,11 @@ export const metadata = {
   title: 'BrainMate — Understand anything. Take action.',
   description:
     'An AI-powered clarity and learning assistant. Explain any topic simply and get a step-by-step action plan.',
+  icons: {
+    icon: '/icon.png',
+    shortcut: '/favicon.png',
+    apple: '/icon.png',
+  },
   verification: {
     google: 'Q_c5lgpKooBnciSI9o-QxNADGa1sVXHAg6aiwJiX_fo',
   },
