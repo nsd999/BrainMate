@@ -129,10 +129,15 @@ export default function Home() {
   const [speaking, setSpeaking] = useState(false);
   const [speakingWhat, setSpeakingWhat] = useState(null);
 
+  // Gamification & Sound Mute State
+  const [streak, setStreak] = useState(1);
+  const [xp, setXp] = useState(60);
+  const [soundMuted, setSoundMuted] = useState(false);
+
   const abortRef = useRef(null);
   const chatAbortRef = useRef(null);
 
-  // Initialize theme, language & user_id
+  // Initialize theme, language, user_id, streak & xp
   useEffect(() => {
     try {
       let uid = localStorage.getItem('brainmate.user_id');
@@ -150,9 +155,29 @@ export default function Home() {
       const savedLang = localStorage.getItem(LANG_KEY);
       if (savedLang) setLanguage(savedLang);
 
+      // Streak & XP restore
+      const savedXp = parseInt(localStorage.getItem('brainmate.xp') || '60', 10);
+      setXp(isNaN(savedXp) ? 60 : savedXp);
+
+      const savedStreak = parseInt(localStorage.getItem('brainmate.streak') || '1', 10);
+      setStreak(isNaN(savedStreak) ? 1 : savedStreak);
+
+      const muted = localStorage.getItem('brainmate.sound_muted') === 'true';
+      setSoundMuted(muted);
+
       setupReengagementNotification();
     } catch (e) {}
   }, []);
+
+  const handleAddXp = (amount) => {
+    setXp((prev) => {
+      const next = prev + amount;
+      try {
+        localStorage.setItem('brainmate.xp', next.toString());
+      } catch (e) {}
+      return next;
+    });
+  };
 
   // Sync theme changes to localStorage
   const handleSetTheme = (newTheme) => {
@@ -162,6 +187,7 @@ export default function Home() {
       document.documentElement.classList.toggle('dark', newTheme === 'dark');
     } catch (e) {}
   };
+
 
   // Sync language changes
   const handleSetLanguage = (newLang) => {
@@ -586,7 +612,7 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground transition-colors flex flex-col justify-between">
+    <div className="min-h-screen bg-background bg-ambient-mesh text-foreground transition-colors flex flex-col justify-between">
       <div>
         {/* Navigation Header */}
         <Header
@@ -599,28 +625,35 @@ export default function Home() {
           setHistoryOpen={setHistoryOpen}
           historyCount={history.length}
           stats={stats}
+          streak={streak}
+          xp={xp}
+          soundMuted={soundMuted}
+          setSoundMuted={setSoundMuted}
         />
 
         {/* Main Container */}
         <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6 space-y-8">
           {/* Intro Hero Banner */}
           {!result && (
-            <div className="text-center space-y-3 py-6 animate-in fade-in duration-200">
-              <div className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-3.5 py-1 text-xs font-semibold text-muted-foreground shadow-2xs">
-                <Sparkles className="h-3.5 w-3.5 text-amber-500 fill-amber-500" />
-                <span>Explains anything in plain English</span>
+            <div className="text-center space-y-3.5 py-6 animate-in fade-in duration-300">
+              <div className="inline-flex items-center gap-1.5 rounded-full border border-indigo-500/30 bg-indigo-500/10 px-4 py-1 text-xs font-extrabold text-indigo-600 dark:text-indigo-300 shadow-xs">
+                <Sparkles className="h-4 w-4 text-amber-400 fill-amber-400" />
+                <span>Explains anything in plain English in 2 minutes</span>
               </div>
-              <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-foreground leading-tight">
-                Understand any topic in 2 minutes.
+              <h2 className="text-3xl sm:text-5xl font-black tracking-tight leading-tight">
+                Master Any Concept.{' '}
+                <span className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500 dark:from-indigo-400 dark:via-purple-400 dark:to-pink-400 bg-clip-text text-transparent">
+                  Effortlessly.
+                </span>
               </h2>
-              <p className="text-sm sm:text-base text-muted-foreground max-w-lg mx-auto font-medium">
-                Clear explanations, real-world analogies, and a practical 3-step action plan to help you learn faster.
+              <p className="text-sm sm:text-base text-muted-foreground max-w-lg mx-auto font-semibold">
+                Clear explanations, real-world analogies, interactive flashcards, pop quizzes & 3-step action plans to make learning addictive.
               </p>
             </div>
           )}
 
-          {/* Input & Mode Controls Card */}
-          <div className="rounded-3xl border border-border bg-card p-6 shadow-2xs space-y-6">
+          {/* Input & Mode Controls Glassmorphic Container */}
+          <div className="rounded-3xl border border-indigo-500/20 bg-card/85 backdrop-blur-xl p-5 sm:p-7 shadow-xl space-y-6">
             <ModeSelector
               modes={MODES}
               selectedMode={mode}
@@ -649,6 +682,7 @@ export default function Home() {
             onStopSpeak={handleStopSpeak}
             onShare={handleShare}
             onExportPdf={handleExportPdf}
+            onAddXp={handleAddXp}
           />
         </main>
       </div>
@@ -660,7 +694,9 @@ export default function Home() {
         quizData={quizData}
         loading={quizLoading}
         topic={result?.topic}
+        onAddXp={handleAddXp}
       />
+
 
       {/* Follow-up Chat Drawer */}
       <ChatDrawer

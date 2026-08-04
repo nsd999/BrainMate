@@ -4,8 +4,8 @@
 
 @layer base {
   :root {
-    /* Refined neutral & indigo shadcn tokens */
-    --background: 220 20% 98%;
+    /* Vibrant modern shadcn tokens (Light) */
+    --background: 220 33% 98%;
     --foreground: 224 71% 4%;
     --card: 0 0% 100%;
     --card-foreground: 224 71% 4%;
@@ -16,7 +16,7 @@
     --secondary: 220 14% 96%;
     --secondary-foreground: 220 9% 15%;
     --muted: 220 14% 95%;
-    --muted-foreground: 220 9% 46%;
+    --muted-foreground: 220 9% 44%;
     --accent: 239 84% 97%;
     --accent-foreground: 239 84% 30%;
     --destructive: 0 84% 60%;
@@ -24,23 +24,19 @@
     --border: 220 13% 90%;
     --input: 220 13% 90%;
     --ring: 239 84% 60%;
-    --radius: 0.75rem;
+    --radius: 1rem;
 
-    /* Handcrafted semantic tokens (light) */
+    /* Handcrafted vibrant semantic tokens (light) */
     --bm-bg: #F8FAFC;
-    --bm-card: #FFFFFF;
+    --bm-card: rgba(255, 255, 255, 0.85);
     --bm-text: #0F172A;
     --bm-text-soft: #475569;
     --bm-text-faint: #94A3B8;
-    --bm-border: #E2E8F0;
+    --bm-border: rgba(226, 232, 240, 0.8);
     --bm-subtle: #F1F5F9;
-    --bm-pill-active: #4F46E5;
-    --bm-pill-active-text: #FFFFFF;
     --bm-accent: #4F46E5;
     --bm-accent-hover: #4338CA;
     --bm-accent-soft: #EEF2FF;
-    --bm-accent-soft-border: #C7D2FE;
-    --bm-overlay: rgba(15, 23, 42, 0.4);
   }
 
   .dark {
@@ -66,19 +62,15 @@
 
     /* Handcrafted dark tokens */
     --bm-bg: #090D16;
-    --bm-card: #111827;
+    --bm-card: rgba(17, 24, 39, 0.80);
     --bm-text: #F9FAFB;
     --bm-text-soft: #9CA3AF;
     --bm-text-faint: #6B7280;
-    --bm-border: #1F2937;
+    --bm-border: rgba(31, 41, 55, 0.8);
     --bm-subtle: #171F2E;
-    --bm-pill-active: #6366F1;
-    --bm-pill-active-text: #FFFFFF;
     --bm-accent: #6366F1;
     --bm-accent-hover: #818CF8;
     --bm-accent-soft: #1E1B4B;
-    --bm-accent-soft-border: #312E81;
-    --bm-overlay: rgba(0, 0, 0, 0.70);
   }
 }
 
@@ -89,43 +81,114 @@
   body {
     background: var(--bm-bg);
     color: var(--bm-text);
-    font-family: var(--font-inter), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    font-family: var(--font-inter), ui-sans-serif, system-ui, -apple-system, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    transition: background-color 0.2s ease, color 0.2s ease;
+    transition: background-color 0.25s cubic-bezier(0.4, 0, 0.2, 1), color 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   }
 }
 
-@layer utilities {
-  .fade-in {
-    animation: fadeIn 0.3s ease-out both;
-  }
-
-  .fade-in-up {
-    animation: fadeInUp 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
-  }
-
-  .soft-card-shadow {
-    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05), 0 4px 12px rgba(15, 23, 42, 0.03);
-  }
-
-  .dark .soft-card-shadow {
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4), 0 4px 12px rgba(0, 0, 0, 0.3);
-  }
+/* Dynamic Ambient Glow Mesh Background */
+.bg-ambient-mesh {
+  background-image: 
+    radial-gradient(at 15% 15%, rgba(99, 102, 241, 0.12) 0px, transparent 50%),
+    radial-gradient(at 85% 20%, rgba(236, 72, 153, 0.10) 0px, transparent 50%),
+    radial-gradient(at 50% 80%, rgba(16, 185, 129, 0.08) 0px, transparent 50%);
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to   { opacity: 1; }
+.dark .bg-ambient-mesh {
+  background-image: 
+    radial-gradient(at 15% 15%, rgba(99, 102, 241, 0.22) 0px, transparent 50%),
+    radial-gradient(at 85% 20%, rgba(236, 72, 153, 0.18) 0px, transparent 50%),
+    radial-gradient(at 50% 80%, rgba(16, 185, 129, 0.15) 0px, transparent 50%);
 }
 
-@keyframes fadeInUp {
-  from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: translateY(0); }
+/* Glassmorphism & GPU Acceleration */
+.glass-panel {
+  background: var(--bm-card);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--bm-border);
+  will-change: transform, opacity;
 }
 
-/* Subtle scrollbar */
+.glass-card-vivid {
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  box-shadow: 0 10px 30px -10px rgba(79, 70, 229, 0.08);
+}
+
+.dark .glass-card-vivid {
+  background: rgba(17, 24, 39, 0.75);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+}
+
+/* Magnetic Hover Physics Effects */
+.magnetic-card {
+  transition: transform 0.25s cubic-bezier(0.25, 1, 0.5, 1), box-shadow 0.25s cubic-bezier(0.25, 1, 0.5, 1), border-color 0.25s ease;
+  will-change: transform;
+}
+
+.magnetic-card:hover {
+  transform: translateY(-3px) scale(1.015);
+}
+
+.magnetic-card:active {
+  transform: translateY(0px) scale(0.985);
+}
+
+/* Rainbow Animated Border Glow */
+.rainbow-border {
+  position: relative;
+}
+
+.rainbow-border::before {
+  content: '';
+  position: absolute;
+  inset: -1.5px;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: linear-gradient(90deg, #6366F1, #EC4899, #F59E0B, #10B981, #6366F1);
+  background-size: 200% 100%;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: rainbowRotate 4s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes rainbowRotate {
+  0% { background-position: 0% 0%; }
+  100% { background-position: 200% 0%; }
+}
+
+/* 3D Flashcard Flip utilities */
+.perspective-1000 {
+  perspective: 1000px;
+}
+
+.transform-style-3d {
+  transform-style: preserve-3d;
+  transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.backface-hidden {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.rotate-y-180 {
+  transform: rotateY(180deg);
+}
+
+/* Custom Scrollbar */
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--bm-border); border-radius: 8px; }
-::-webkit-scrollbar-thumb:hover { background: var(--bm-text-faint); }
+::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.4); border-radius: 9999px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(99, 102, 241, 0.7); }
+
