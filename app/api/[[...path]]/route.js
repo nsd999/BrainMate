@@ -270,28 +270,61 @@ function validateResponse(data) {
 // ============================================================================
 
 function parseQuiz(text) {
+  if (!text) return [];
   const out = [];
+
+  // 1. Try parsing JSON if response contains a JSON array/object
+  try {
+    const jsonMatch = text.match(/\[\s*\{[\s\S]*\}\s*\]/);
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0]);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed.slice(0, 4).map((q, idx) => ({
+          index: idx + 1,
+          question: q.question || q.q || `Question ${idx + 1}`,
+          options: Array.isArray(q.options)
+            ? q.options.map((opt, i) => ({
+                letter: String.fromCharCode(65 + i),
+                text: typeof opt === 'string' ? opt : opt.text || ''
+              }))
+            : Object.entries(q.options || {}).map(([letter, text]) => ({ letter: letter.toUpperCase(), text: String(text) })),
+          answer: String(q.answer || 'A').toUpperCase().slice(0, 1),
+          explain: q.explain || q.explanation || 'Based on the core concept.'
+        }));
+      }
+    }
+  } catch (e) {}
+
+  // 2. Regex tag block parsing (handling format variations)
   for (let i = 1; i <= 4; i++) {
-    const re = new RegExp(`<<Q${i}>>([\\s\\S]*?)<<END>>`, 'i');
+    const re = new RegExp(`<<Q${i}>>([\\s\\S]*?)(?:<<END>>|<<Q${i + 1}>>|$)`, 'i');
     const m = text.match(re);
     if (!m) continue;
     const block = m[1];
+
     const grab = (label) => {
       const lr = new RegExp(`^\\s*${label}:\\s*(.+)$`, 'im');
       const r = block.match(lr);
       return r ? r[1].trim() : '';
     };
-    const optRe = /^\s*([ABCD])\)\s*(.+)$/gim;
+
+    const optRe = /^\s*(?:[-*]\s*)?[\(\[]?([A-D1-4])[\)\.]?\s*(.+)$/gim;
     const options = [];
     let mm;
-    while ((mm = optRe.exec(block)) !== null) {
-      options.push({ letter: mm[1].toUpperCase(), text: mm[2].trim() });
+    const letters = ['A', 'B', 'C', 'D'];
+
+    while ((mm = optRe.exec(block)) !== null && options.length < 4) {
+      let l = mm[1].toUpperCase();
+      if (/^[1-4]$/.test(l)) l = letters[parseInt(l, 10) - 1];
+      options.push({ letter: l, text: mm[2].trim() });
     }
-    const question = grab('QUESTION');
-    const answer = (grab('ANSWER') || '').toUpperCase().slice(0, 1);
-    const explain = grab('EXPLAIN');
-    if (question && options.length === 4 && /^[ABCD]$/.test(answer)) {
-      out.push({ index: i, question, options, answer, explain });
+
+    const question = grab('QUESTION') || grab('Q') || block.split('\n')[0].replace(/^.*QUESTION:\s*/i, '').trim();
+    const answer = (grab('ANSWER') || grab('ANS') || 'A').toUpperCase().slice(0, 1);
+    const explain = grab('EXPLAIN') || grab('EXPLANATION') || 'Based on the explanation provided.';
+
+    if (question && options.length === 4) {
+      out.push({ index: i, question, options, answer: /^[ABCD]$/.test(answer) ? answer : 'A', explain });
     }
   }
   return out;
@@ -446,19 +479,20 @@ async function callQuizLLM(topic, mode, language, context) {
           { role: 'system', content: QUIZ_SYSTEM_PROMPT },
           { role: 'user', content: buildQuizUserPrompt(topic, mode, language, context) }
         ]
-      })
+      }),
+      signal: AbortSignal.timeout(3500)
     });
 
     if (res.ok) {
       const data = await res.json();
       const content = data?.choices?.[0]?.message?.content || '';
       const questions = parseQuiz(content);
-      if (Array.isArray(questions) && questions.length > 0) {
+      if (Array.isArray(questions) && questions.length === 4) {
         return questions;
       }
     }
   } catch (err) {
-    console.error('[callQuizLLM OpenAI error]', err);
+    console.error('[callQuizLLM OpenAI fast timeout/error]', err?.message);
   }
 
   try {
@@ -476,19 +510,20 @@ async function callQuizLLM(topic, mode, language, context) {
           { role: 'system', content: QUIZ_SYSTEM_PROMPT },
           { role: 'user', content: buildQuizUserPrompt(topic, mode, language, context) }
         ]
-      })
+      }),
+      signal: AbortSignal.timeout(3500)
     });
 
     if (res.ok) {
       const data = await res.json();
       const content = data?.choices?.[0]?.message?.content || '';
       const questions = parseQuiz(content);
-      if (Array.isArray(questions) && questions.length > 0) {
+      if (Array.isArray(questions) && questions.length === 4) {
         return questions;
       }
     }
   } catch (err) {
-    console.error('[callQuizLLM Groq error]', err);
+    console.error('[callQuizLLM Groq fast timeout/error]', err?.message);
   }
 
   return getFallbackQuiz(topic);

@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import {
-  Sparkles,
   Sun,
   Moon,
   Languages,
@@ -36,35 +35,34 @@ export default function Header({
   const [brandMenuOpen, setBrandMenuOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-purple-200/50 dark:border-purple-900/40 bg-background/95 backdrop-blur-md">
+    <header className="sticky top-0 z-40 w-full border-b border-border/80 bg-background/95 backdrop-blur-md">
       <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3 sm:px-6">
         {/* Top-Left Brand Logo (Clickable -> Opens Side Menu) */}
         <div className="relative">
           <button
             type="button"
             onClick={() => setBrandMenuOpen(!brandMenuOpen)}
-            className="flex items-center gap-3 group text-left focus:outline-none rounded-2xl p-1.5 -ml-1.5 transition-all hover:bg-purple-500/10 active:scale-95"
-            title="Click to open NSD Creations brand menu & options"
+            className="flex items-center gap-3 group text-left focus:outline-none rounded-2xl p-1 -ml-1 transition-all hover:bg-muted/60 active:scale-98"
+            title="Menu & Brand links"
           >
-            <div className="relative h-10 w-10 rounded-2xl bg-gradient-to-tr from-purple-600 via-pink-600 to-amber-500 p-0.5 shadow-md shadow-purple-500/20 group-hover:scale-105 transition-transform">
+            <div className="relative h-9 w-9 rounded-xl overflow-hidden shadow-sm group-hover:scale-105 transition-transform border border-border">
               <img
                 src="/logo.png"
                 alt="BrainMate Logo"
-                className="h-full w-full object-cover rounded-[14px]"
+                className="h-full w-full object-cover"
               />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-lg font-black tracking-tight text-foreground group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors flex items-center gap-1">
+                <h1 className="text-base sm:text-lg font-bold tracking-tight text-foreground group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
                   BrainMate
                 </h1>
-                <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-purple-500/15 to-pink-500/15 px-2 py-0.5 text-[10px] font-extrabold text-purple-700 dark:text-purple-300 border border-purple-300/40 dark:border-purple-700/40">
-                  <Sparkles className="h-2.5 w-2.5 text-amber-500 fill-amber-500" />
-                  AI Tutor
+                <span className="inline-flex items-center rounded-md bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground border border-border">
+                  v2.0
                 </span>
               </div>
               <p className="text-[11px] text-muted-foreground hidden sm:block font-medium">
-                Click for NSD Creations & Options ▾
+                Menu & Links ▾
               </p>
             </div>
           </button>
@@ -74,7 +72,7 @@ export default function Header({
         <div className="flex items-center gap-2 sm:gap-3">
           {/* Stats Badge */}
           {stats?.total_explanations > 0 && (
-            <div className="hidden md:flex items-center gap-1.5 rounded-xl border border-purple-200/60 dark:border-purple-900/50 bg-purple-500/5 px-3 py-1 text-xs text-muted-foreground font-semibold">
+            <div className="hidden md:flex items-center gap-1.5 rounded-xl border border-border bg-muted/40 px-2.5 py-1 text-xs text-muted-foreground font-medium">
               <Star className="h-3.5 w-3.5 text-amber-500 fill-amber-500" />
               <span>{stats.total_explanations} Explained</span>
             </div>
@@ -85,7 +83,7 @@ export default function Header({
             <select
               value={language}
               onChange={(e) => setLanguage(e.target.value)}
-              className="h-8.5 appearance-none rounded-xl border border-purple-200 dark:border-purple-900/60 bg-card px-3 pr-8 text-xs font-semibold text-foreground hover:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-500/20 cursor-pointer shadow-2xs"
+              className="h-8.5 appearance-none rounded-xl border border-border bg-card px-2.5 pr-7 text-xs font-medium text-foreground hover:bg-muted/50 focus:outline-none focus:ring-1 focus:ring-ring cursor-pointer shadow-2xs"
               aria-label="Select language"
             >
               {languages.map((lang) => (
@@ -94,7 +92,7 @@ export default function Header({
                 </option>
               ))}
             </select>
-            <Languages className="pointer-events-none absolute right-2.5 top-2.5 h-3.5 w-3.5 text-purple-500" />
+            <Languages className="pointer-events-none absolute right-2 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
           </div>
 
           {/* Theme Toggle */}
@@ -102,13 +100,13 @@ export default function Header({
             variant="outline"
             size="icon"
             onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-            className="h-8.5 w-8.5 rounded-xl border-purple-200 dark:border-purple-900/60 hover:bg-purple-500/10"
+            className="h-8.5 w-8.5 rounded-xl border-border hover:bg-muted"
             title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
           >
             {theme === 'dark' ? (
               <Sun className="h-4 w-4 text-amber-400" />
             ) : (
-              <Moon className="h-4 w-4 text-purple-600" />
+              <Moon className="h-4 w-4 text-slate-700" />
             )}
           </Button>
 
@@ -117,16 +115,12 @@ export default function Header({
             variant={historyOpen ? 'default' : 'outline'}
             size="sm"
             onClick={() => setHistoryOpen(!historyOpen)}
-            className={
-              historyOpen
-                ? 'h-8.5 gap-1.5 rounded-xl bg-purple-600 text-white font-bold text-xs shadow-md shadow-purple-500/20'
-                : 'h-8.5 gap-1.5 rounded-xl border-purple-200 dark:border-purple-900/60 text-xs font-bold hover:bg-purple-500/10'
-            }
+            className="h-8.5 gap-1.5 rounded-xl text-xs font-medium"
           >
             <History className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">History</span>
             {historyCount > 0 && (
-              <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-black text-white">
+              <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-indigo-600 text-white px-1 text-[10px] font-bold">
                 {historyCount}
               </span>
             )}
@@ -139,22 +133,22 @@ export default function Header({
         <div className="fixed inset-0 z-50 flex">
           {/* Backdrop overlay */}
           <div
-            className="fixed inset-0 bg-black/50 backdrop-blur-xs transition-opacity animate-in fade-in duration-200"
+            className="fixed inset-0 bg-black/40 backdrop-blur-xs transition-opacity animate-in fade-in duration-150"
             onClick={() => setBrandMenuOpen(false)}
           />
 
           {/* Side Drawer panel */}
-          <div className="relative z-10 w-80 max-w-[85vw] bg-card border-r border-purple-200 dark:border-purple-900/50 shadow-2xl p-5 flex flex-col justify-between h-full animate-in slide-in-from-left duration-250">
+          <div className="relative z-10 w-80 max-w-[85vw] bg-card border-r border-border shadow-2xl p-5 flex flex-col justify-between h-full animate-in slide-in-from-left duration-200">
             <div className="space-y-6">
               {/* Header inside side menu */}
-              <div className="flex items-center justify-between pb-4 border-b border-border/60">
+              <div className="flex items-center justify-between pb-4 border-b border-border">
                 <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-2xl bg-gradient-to-tr from-purple-600 via-pink-600 to-amber-500 p-0.5 shadow-md">
-                    <img src="/logo.png" alt="Logo" className="h-full w-full object-cover rounded-[14px]" />
+                  <div className="h-9 w-9 rounded-xl overflow-hidden border border-border shadow-xs">
+                    <img src="/logo.png" alt="Logo" className="h-full w-full object-cover" />
                   </div>
                   <div>
-                    <h3 className="font-extrabold text-base text-foreground">BrainMate</h3>
-                    <p className="text-[11px] font-semibold text-purple-600 dark:text-purple-400">
+                    <h3 className="font-bold text-base text-foreground">BrainMate</h3>
+                    <p className="text-xs text-muted-foreground font-medium">
                       by NSD Creations
                     </p>
                   </div>
@@ -172,8 +166,8 @@ export default function Header({
 
               {/* Brand Links & Options List */}
               <div className="space-y-2">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground px-2">
-                  Brand Navigation
+                <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground px-1">
+                  Links & Options
                 </span>
 
                 {/* 1. NSD Creations */}
@@ -182,18 +176,18 @@ export default function Header({
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={() => setBrandMenuOpen(false)}
-                  className="flex items-center justify-between rounded-2xl border border-purple-100 dark:border-purple-900/40 bg-purple-500/5 p-3 text-xs font-bold text-foreground hover:bg-purple-500/10 hover:border-purple-400 transition-all group"
+                  className="flex items-center justify-between rounded-xl border border-border/80 bg-background p-3 text-xs font-semibold text-foreground hover:bg-muted transition-all group"
                 >
                   <div className="flex items-center gap-2.5">
-                    <div className="h-7 w-7 rounded-xl bg-foreground text-background flex items-center justify-center font-black text-[10px]">
+                    <div className="h-7 w-7 rounded-lg bg-foreground text-background flex items-center justify-center font-bold text-[10px]">
                       NSD
                     </div>
                     <div className="flex flex-col">
                       <span>NSD Creations</span>
-                      <span className="text-[10px] font-medium text-muted-foreground">Creative Tech Partner</span>
+                      <span className="text-[10px] font-normal text-muted-foreground">Creative Tech Partner</span>
                     </div>
                   </div>
-                  <ExternalLink className="h-4 w-4 text-purple-500 group-hover:translate-x-0.5 transition-transform" />
+                  <ExternalLink className="h-3.5 w-3.5 text-muted-foreground group-hover:text-foreground transition-colors" />
                 </a>
 
                 {/* 2. Instagram */}
@@ -202,18 +196,18 @@ export default function Header({
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={() => setBrandMenuOpen(false)}
-                  className="flex items-center justify-between rounded-2xl border border-pink-100 dark:border-pink-900/40 bg-pink-500/5 p-3 text-xs font-bold text-foreground hover:bg-pink-500/10 hover:border-pink-400 transition-all group"
+                  className="flex items-center justify-between rounded-xl border border-border/80 bg-background p-3 text-xs font-semibold text-foreground hover:bg-muted transition-all group"
                 >
                   <div className="flex items-center gap-2.5">
-                    <div className="h-7 w-7 rounded-xl bg-pink-500 text-white flex items-center justify-center">
+                    <div className="h-7 w-7 rounded-lg bg-pink-500/10 text-pink-600 dark:text-pink-400 flex items-center justify-center">
                       <Instagram className="h-4 w-4" />
                     </div>
                     <div className="flex flex-col">
-                      <span>Instagram Page</span>
-                      <span className="text-[10px] font-medium text-muted-foreground">@nsd.creations.official</span>
+                      <span>Instagram</span>
+                      <span className="text-[10px] font-normal text-muted-foreground">@nsd.creations.official</span>
                     </div>
                   </div>
-                  <ExternalLink className="h-4 w-4 text-pink-500 group-hover:translate-x-0.5 transition-transform" />
+                  <ExternalLink className="h-3.5 w-3.5 text-muted-foreground group-hover:text-foreground transition-colors" />
                 </a>
 
                 {/* 3. Website */}
@@ -222,36 +216,36 @@ export default function Header({
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={() => setBrandMenuOpen(false)}
-                  className="flex items-center justify-between rounded-2xl border border-indigo-100 dark:border-indigo-900/40 bg-indigo-500/5 p-3 text-xs font-bold text-foreground hover:bg-indigo-500/10 hover:border-indigo-400 transition-all group"
+                  className="flex items-center justify-between rounded-xl border border-border/80 bg-background p-3 text-xs font-semibold text-foreground hover:bg-muted transition-all group"
                 >
                   <div className="flex items-center gap-2.5">
-                    <div className="h-7 w-7 rounded-xl bg-indigo-500 text-white flex items-center justify-center">
+                    <div className="h-7 w-7 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
                       <Globe className="h-4 w-4" />
                     </div>
                     <div className="flex flex-col">
                       <span>Official Website</span>
-                      <span className="text-[10px] font-medium text-muted-foreground">Visit Portfolio & Services</span>
+                      <span className="text-[10px] font-normal text-muted-foreground">Portfolio & Services</span>
                     </div>
                   </div>
-                  <ArrowUpRight className="h-4 w-4 text-indigo-500 group-hover:translate-x-0.5 transition-transform" />
+                  <ArrowUpRight className="h-3.5 w-3.5 text-muted-foreground group-hover:text-foreground transition-colors" />
                 </a>
 
                 {/* 4. Why BrainMate / About */}
                 <Link
                   href="/about"
                   onClick={() => setBrandMenuOpen(false)}
-                  className="flex items-center justify-between rounded-2xl border border-amber-100 dark:border-amber-900/40 bg-amber-500/5 p-3 text-xs font-bold text-foreground hover:bg-amber-500/10 hover:border-amber-400 transition-all group"
+                  className="flex items-center justify-between rounded-xl border border-border/80 bg-background p-3 text-xs font-semibold text-foreground hover:bg-muted transition-all group"
                 >
                   <div className="flex items-center gap-2.5">
-                    <div className="h-7 w-7 rounded-xl bg-amber-500 text-white flex items-center justify-center">
+                    <div className="h-7 w-7 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
                       <Info className="h-4 w-4" />
                     </div>
                     <div className="flex flex-col">
-                      <span>Why BrainMate & About</span>
-                      <span className="text-[10px] font-medium text-muted-foreground">Detailed story & modes</span>
+                      <span>About & Philosophy</span>
+                      <span className="text-[10px] font-normal text-muted-foreground">Story & mode breakdown</span>
                     </div>
                   </div>
-                  <ChevronRight className="h-4 w-4 text-amber-500 group-hover:translate-x-0.5 transition-transform" />
+                  <ChevronRight className="h-3.5 w-3.5 text-muted-foreground group-hover:text-foreground transition-colors" />
                 </Link>
 
                 {/* 5. Notification Permissions */}
@@ -261,34 +255,34 @@ export default function Header({
                     requestNotificationPermission();
                     setBrandMenuOpen(false);
                   }}
-                  className="w-full flex items-center justify-between rounded-2xl border border-emerald-100 dark:border-emerald-900/40 bg-emerald-500/5 p-3 text-xs font-bold text-foreground hover:bg-emerald-500/10 hover:border-emerald-400 transition-all text-left"
+                  className="w-full flex items-center justify-between rounded-xl border border-border/80 bg-background p-3 text-xs font-semibold text-foreground hover:bg-muted transition-all text-left"
                 >
                   <div className="flex items-center gap-2.5">
-                    <div className="h-7 w-7 rounded-xl bg-emerald-500 text-white flex items-center justify-center">
+                    <div className="h-7 w-7 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
                       <Bell className="h-4 w-4" />
                     </div>
                     <div className="flex flex-col">
-                      <span>Enable Notifications</span>
-                      <span className="text-[10px] font-medium text-muted-foreground">Get updates on quiz & study</span>
+                      <span>Study Notifications</span>
+                      <span className="text-[10px] font-normal text-muted-foreground">Alerts for quiz & explanations</span>
                     </div>
                   </div>
-                  <span className="text-[10px] bg-emerald-500 text-white font-black px-2 py-0.5 rounded-full">
-                    Enable
+                  <span className="text-[10px] border border-border px-2 py-0.5 rounded-md font-bold text-muted-foreground">
+                    Toggle
                   </span>
                 </button>
               </div>
             </div>
 
             {/* Founder Footer inside side menu */}
-            <div className="pt-4 border-t border-border/60 text-xs space-y-1">
-              <div className="flex items-center justify-between text-muted-foreground">
-                <span>Founder: <strong className="text-foreground">Sai Dheeraj Nalkari</strong></span>
-              </div>
-              <p className="text-[11px] text-muted-foreground font-mono">Hyderabad, Telangana, India</p>
+            <div className="pt-4 border-t border-border text-xs space-y-1">
+              <p className="text-muted-foreground font-medium">
+                Created by <strong className="text-foreground">Sai Dheeraj Nalkari</strong>
+              </p>
+              <p className="text-[11px] text-muted-foreground">Hyderabad, Telangana, India</p>
               <div className="pt-2 flex items-center gap-1 text-[11px] text-muted-foreground">
-                <span>Made with</span>
+                <span>Handcrafted with</span>
                 <Heart className="h-3 w-3 fill-rose-500 text-rose-500" />
-                <span>for curious minds</span>
+                <span>for clear learning</span>
               </div>
             </div>
           </div>
