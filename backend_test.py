@@ -4,6 +4,7 @@ BrainMate Backend API Testing Script
 Tests all backend endpoints according to the test requirements.
 """
 
+import os
 import requests
 import json
 import time
@@ -12,8 +13,7 @@ import uuid
 import re
 from typing import Dict, Any
 
-# Use the external URL from .env
-BASE_URL = "https://82df8663-624d-438d-8dbb-5551b805e52f.preview.emergentagent.com/api"
+BASE_URL = os.environ.get("API_BASE_URL", "http://localhost:3000/api")
 TIMEOUT = 60  # 60 seconds timeout for LLM calls
 
 def test_get_root():

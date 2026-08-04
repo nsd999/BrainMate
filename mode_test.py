@@ -3,10 +3,11 @@
 Additional test to verify that different modes produce different explanations
 """
 
+import os
 import requests
 import json
 
-BASE_URL = "https://82df8663-624d-438d-8dbb-5551b805e52f.preview.emergentagent.com/api"
+BASE_URL = os.environ.get("API_BASE_URL", "http://localhost:3000/api")
 TIMEOUT = 60
 
 def test_mode_differences():
