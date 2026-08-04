@@ -4,81 +4,81 @@
 
 @layer base {
   :root {
-    /* shadcn tokens (kept for shadcn components) */
-    --background: 0 0% 100%;
-    --foreground: 240 10% 4%;
+    /* shadcn tokens */
+    --background: 270 20% 98%;
+    --foreground: 270 30% 10%;
     --card: 0 0% 100%;
-    --card-foreground: 240 10% 4%;
+    --card-foreground: 270 30% 10%;
     --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 4%;
-    --primary: 243 75% 59%;
+    --popover-foreground: 270 30% 10%;
+    --primary: 272 85% 60%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 220 14% 96%;
-    --secondary-foreground: 240 10% 4%;
-    --muted: 220 14% 96%;
-    --muted-foreground: 220 9% 46%;
-    --accent: 220 14% 96%;
-    --accent-foreground: 240 10% 4%;
+    --secondary: 270 30% 95%;
+    --secondary-foreground: 270 30% 15%;
+    --muted: 270 20% 94%;
+    --muted-foreground: 270 15% 45%;
+    --accent: 280 80% 95%;
+    --accent-foreground: 280 80% 30%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
-    --border: 220 13% 91%;
-    --input: 220 13% 91%;
-    --ring: 243 75% 59%;
-    --radius: 0.75rem;
+    --border: 270 20% 90%;
+    --input: 270 20% 90%;
+    --ring: 272 85% 60%;
+    --radius: 0.85rem;
 
-    /* BrainMate semantic tokens (light) */
-    --bm-bg: #F8F9FB;
+    /* BrainMate vibrant tokens (light) */
+    --bm-bg: #F9FAFF;
     --bm-card: #FFFFFF;
-    --bm-text: #0B0B0F;
-    --bm-text-soft: #6B7280;
-    --bm-text-faint: #9CA3AF;
-    --bm-border: #E5E7EB;
-    --bm-subtle: #F1F2F4;
-    --bm-pill-active: #0B0B0F;
+    --bm-text: #0F0921;
+    --bm-text-soft: #524B68;
+    --bm-text-faint: #8E87A5;
+    --bm-border: #E8E3F5;
+    --bm-subtle: #F3EFFF;
+    --bm-pill-active: #7C3AED;
     --bm-pill-active-text: #FFFFFF;
-    --bm-accent: #4F46E5;
-    --bm-accent-hover: #4338CA;
-    --bm-accent-soft: #EEF2FF;
-    --bm-accent-soft-border: #E0E7FF;
-    --bm-overlay: rgba(0, 0, 0, 0.20);
+    --bm-accent: #8B5CF6;
+    --bm-accent-hover: #7C3AED;
+    --bm-accent-soft: #F5F3FF;
+    --bm-accent-soft-border: #DDD6FE;
+    --bm-overlay: rgba(15, 9, 33, 0.35);
   }
 
   .dark {
-    --background: 240 6% 6%;
-    --foreground: 0 0% 96%;
-    --card: 240 6% 9%;
-    --card-foreground: 0 0% 96%;
-    --popover: 240 6% 9%;
-    --popover-foreground: 0 0% 96%;
-    --primary: 243 75% 65%;
+    --background: 270 30% 6%;
+    --foreground: 270 15% 96%;
+    --card: 270 25% 10%;
+    --card-foreground: 270 15% 96%;
+    --popover: 270 25% 10%;
+    --popover-foreground: 270 15% 96%;
+    --primary: 272 90% 65%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 240 5% 15%;
-    --secondary-foreground: 0 0% 96%;
-    --muted: 240 5% 15%;
-    --muted-foreground: 220 9% 65%;
-    --accent: 240 5% 15%;
-    --accent-foreground: 0 0% 96%;
+    --secondary: 270 20% 15%;
+    --secondary-foreground: 270 15% 96%;
+    --muted: 270 20% 16%;
+    --muted-foreground: 270 15% 65%;
+    --accent: 280 50% 20%;
+    --accent-foreground: 270 15% 96%;
     --destructive: 0 70% 55%;
     --destructive-foreground: 0 0% 100%;
-    --border: 240 5% 18%;
-    --input: 240 5% 18%;
-    --ring: 243 75% 65%;
+    --border: 270 20% 20%;
+    --input: 270 20% 20%;
+    --ring: 272 90% 65%;
 
     /* BrainMate dark tokens */
-    --bm-bg: #0A0A0C;
-    --bm-card: #15151A;
-    --bm-text: #F4F4F5;
-    --bm-text-soft: #A1A1AA;
-    --bm-text-faint: #71717A;
-    --bm-border: #27272A;
-    --bm-subtle: #1F1F23;
-    --bm-pill-active: #FFFFFF;
-    --bm-pill-active-text: #0B0B0F;
-    --bm-accent: #6366F1;
-    --bm-accent-hover: #818CF8;
-    --bm-accent-soft: #1E1B4B;
-    --bm-accent-soft-border: #312E81;
-    --bm-overlay: rgba(0, 0, 0, 0.55);
+    --bm-bg: #0C0717;
+    --bm-card: #160F29;
+    --bm-text: #F5F3FF;
+    --bm-text-soft: #B8B0D3;
+    --bm-text-faint: #7E759E;
+    --bm-border: #2A1F45;
+    --bm-subtle: #1E1636;
+    --bm-pill-active: #9333EA;
+    --bm-pill-active-text: #FFFFFF;
+    --bm-accent: #A855F7;
+    --bm-accent-hover: #C084FC;
+    --bm-accent-soft: #2E1065;
+    --bm-accent-soft-border: #581C87;
+    --bm-overlay: rgba(0, 0, 0, 0.70);
   }
 }
 
@@ -97,17 +97,63 @@
 }
 
 @layer utilities {
+  /* Rich vibrant gradients & visual utilities */
+  .bg-gradient-brand {
+    background: linear-gradient(135deg, #7C3AED 0%, #C026D3 50%, #E11D48 100%);
+  }
+
+  .bg-gradient-brand-soft {
+    background: linear-gradient(135deg, rgba(124, 58, 237, 0.12) 0%, rgba(192, 38, 211, 0.12) 50%, rgba(225, 29, 72, 0.12) 100%);
+  }
+
+  .text-gradient-brand {
+    background: linear-gradient(135deg, #8B5CF6 0%, #EC4899 50%, #F43F5E 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .text-gradient-vivid {
+    background: linear-gradient(135deg, #A855F7 0%, #3B82F6 50%, #06B6D4 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .glow-purple {
+    box-shadow: 0 0 25px -5px rgba(139, 92, 246, 0.4);
+  }
+
+  .glow-pink {
+    box-shadow: 0 0 25px -5px rgba(236, 72, 153, 0.4);
+  }
+
+  .glass-card {
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(232, 227, 245, 0.8);
+  }
+
+  .dark .glass-card {
+    background: rgba(22, 15, 41, 0.85);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(42, 31, 69, 0.8);
+  }
+
   .fade-in {
-    animation: fadeIn 0.5s ease-out both;
+    animation: fadeIn 0.4s ease-out both;
   }
+
   .fade-in-up {
-    animation: fadeInUp 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation: fadeInUp 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
   }
+
   .soft-card-shadow {
-    box-shadow: 0 1px 2px rgba(11, 11, 15, 0.04), 0 4px 12px rgba(11, 11, 15, 0.04);
+    box-shadow: 0 4px 20px -2px rgba(124, 58, 237, 0.08), 0 2px 6px -1px rgba(0, 0, 0, 0.04);
   }
+
   .dark .soft-card-shadow {
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 12px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 4px 25px -2px rgba(168, 85, 247, 0.15), 0 2px 8px -1px rgba(0, 0, 0, 0.4);
   }
 }
 
@@ -117,11 +163,12 @@
 }
 
 @keyframes fadeInUp {
-  from { opacity: 0; transform: translateY(8px); }
+  from { opacity: 0; transform: translateY(12px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
-/* Subtle scrollbar */
-::-webkit-scrollbar { width: 10px; height: 10px; }
-::-webkit-scrollbar-thumb { background: var(--bm-border); border-radius: 8px; }
-::-webkit-scrollbar-thumb:hover { background: var(--bm-text-faint); }
+/* Vibrant scrollbar */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(139, 92, 246, 0.3); border-radius: 8px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(139, 92, 246, 0.6); }

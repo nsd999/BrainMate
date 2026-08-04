@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import Header from '@/components/Header';
 import ModeSelector from '@/components/ModeSelector';
 import TopicInput from '@/components/TopicInput';
@@ -12,11 +13,13 @@ import Footer from '@/components/Footer';
 
 import { jsPDF } from 'jspdf';
 import { toast } from 'sonner';
+import { Sparkles, X, Brain, CheckCircle2, Zap, ArrowRight } from 'lucide-react';
+import { notifyExplanationComplete } from '@/lib/notifications';
 
 const MODES = [
-  { id: 'kid', label: 'Kid Mode', hint: 'Super simple' },
+  { id: 'kid', label: 'Kid Mode', hint: 'Super simple & playful' },
   { id: 'student', label: 'Student Mode', hint: 'Clear & educational' },
-  { id: 'pro', label: 'Pro Mode', hint: 'Precise & nuanced' }
+  { id: 'pro', label: 'Pro Mode', hint: 'Precise & engineering' }
 ];
 
 const LANGUAGES = [
@@ -118,6 +121,9 @@ export default function Home() {
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState('');
   const [chatStreaming, setChatStreaming] = useState(false);
+
+  // Why BrainMate Modal State
+  const [whyBrainMateOpen, setWhyBrainMateOpen] = useState(false);
 
   // Voice Speech State
   const [speaking, setSpeaking] = useState(false);
@@ -329,6 +335,7 @@ export default function Home() {
           created_at: new Date().toISOString(),
           payload: finalResult
         });
+        notifyExplanationComplete(t);
       }
     } catch (err) {
       if (err?.name !== 'AbortError') {
@@ -448,12 +455,12 @@ export default function Home() {
               if (typeof t === 'string') {
                 assistantText += t;
                 setChatMessages((prev) => {
-                  const copy = prev.slice();
-                  const last = copy[copy.length - 1];
-                  if (last && last.role === 'assistant') {
-                    copy[copy.length - 1] = { ...last, content: assistantText };
-                  }
-                  return copy;
+                  const updated = [...prev];
+                  updated[updated.length - 1] = {
+                    role: 'assistant',
+                    content: assistantText
+                  };
+                  return updated;
                 });
               }
             } catch (e) {}
@@ -462,7 +469,7 @@ export default function Home() {
       }
     } catch (err) {
       if (err?.name !== 'AbortError') {
-        toast.error('Could not get response');
+        toast.error('Failed to get response');
       }
     } finally {
       setChatStreaming(false);
@@ -470,14 +477,18 @@ export default function Home() {
     }
   };
 
-  // Text-To-Speech
+  // Text-To-Speech Output
   const handleSpeak = (text, key) => {
-    if (!('speechSynthesis' in window)) {
-      toast.error('Voice playback is not supported in this browser');
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      toast.error('Text-to-speech not supported on this device');
       return;
     }
     window.speechSynthesis.cancel();
+
     const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 1.0;
+    utterance.pitch = 1.0;
+
     utterance.onstart = () => {
       setSpeaking(true);
       setSpeakingWhat(key);
@@ -490,123 +501,154 @@ export default function Home() {
       setSpeaking(false);
       setSpeakingWhat(null);
     };
+
     window.speechSynthesis.speak(utterance);
   };
 
   const handleStopSpeak = () => {
-    if ('speechSynthesis' in window) {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       window.speechSynthesis.cancel();
     }
     setSpeaking(false);
     setSpeakingWhat(null);
   };
 
-  // Share Explanation
-  const handleShare = () => {
-    if (!result) return;
-    const text = `BrainMate Explanation of "${result.topic}":\n\n${result.simple_explanation}\n\nAnalogy:\n${result.real_life_analogy}`;
-    navigator.clipboard.writeText(text);
-    toast.success('Explanation summary copied to clipboard!');
-  };
-
-  // Export PDF
+  // Export PDF Output
   const handleExportPdf = () => {
     if (!result) return;
     try {
       const doc = new jsPDF();
-      doc.setFontSize(18);
+      doc.setFontSize(20);
       doc.text(`BrainMate: ${result.topic}`, 14, 20);
 
-      doc.setFontSize(11);
-      doc.text(`Mode: ${result.mode.toUpperCase()} | Language: ${result.language}`, 14, 28);
-      doc.line(14, 32, 196, 32);
-
-      let y = 40;
-      doc.setFontSize(13);
-      doc.text('Simple Explanation:', 14, y);
-      y += 6;
       doc.setFontSize(10);
-      const splitSimple = doc.splitTextToSize(result.simple_explanation || '', 180);
-      doc.text(splitSimple, 14, y);
-      y += splitSimple.length * 5 + 6;
+      doc.setTextColor(100);
+      doc.text(`Mode: ${result.mode} | Language: ${result.language || 'English'}`, 14, 28);
+      doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 34);
+
+      let y = 44;
+
+      if (result.simple_explanation) {
+        doc.setFontSize(12);
+        doc.setTextColor(0);
+        doc.text('Simple Explanation:', 14, y);
+        y += 6;
+        doc.setFontSize(10);
+        const lines = doc.splitTextToSize(result.simple_explanation, 180);
+        doc.text(lines, 14, y);
+        y += lines.length * 5 + 6;
+      }
 
       if (result.real_life_analogy) {
-        doc.setFontSize(13);
+        doc.setFontSize(12);
+        doc.setTextColor(0);
         doc.text('Real-Life Analogy:', 14, y);
         y += 6;
         doc.setFontSize(10);
-        const splitAnalogy = doc.splitTextToSize(result.real_life_analogy, 180);
-        doc.text(splitAnalogy, 14, y);
+        const lines = doc.splitTextToSize(result.real_life_analogy, 180);
+        doc.text(lines, 14, y);
+        y += lines.length * 5 + 6;
       }
 
-      doc.save(`BrainMate-${result.topic.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`);
-      toast.success('Exported PDF successfully');
+      if (result.summary) {
+        doc.setFontSize(12);
+        doc.setTextColor(0);
+        doc.text('TL;DR Summary:', 14, y);
+        y += 6;
+        doc.setFontSize(10);
+        const lines = doc.splitTextToSize(result.summary, 180);
+        doc.text(lines, 14, y);
+      }
+
+      doc.save(`BrainMate-${result.topic.replace(/\s+/g, '_')}.pdf`);
+      toast.success('Downloaded PDF summary');
     } catch (e) {
       toast.error('Failed to export PDF');
     }
   };
 
+  // Share URL Output
+  const handleShare = () => {
+    if (!result) return;
+    if (navigator.share) {
+      navigator.share({
+        title: `BrainMate: ${result.topic}`,
+        text: `Check out this clear explanation of ${result.topic} on BrainMate!`,
+        url: window.location.href
+      }).catch(() => {});
+    } else {
+      navigator.clipboard.writeText(window.location.href);
+      toast.success('Link copied to clipboard');
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-background text-foreground transition-colors selection:bg-purple-500/20 selection:text-purple-600">
-      {/* Navigation Header */}
-      <Header
-        theme={theme}
-        setTheme={handleSetTheme}
-        language={language}
-        setLanguage={handleSetLanguage}
-        languages={LANGUAGES}
-        historyOpen={historyOpen}
-        setHistoryOpen={setHistoryOpen}
-        historyCount={history.length}
-        stats={stats}
-      />
-
-      {/* Main Container */}
-      <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6 space-y-8">
-        {/* Intro Banner */}
-        {!result && (
-          <div className="text-center space-y-3 py-6">
-            <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
-              Understand Better. Learn Smarter.
-            </h2>
-            <p className="text-sm sm:text-base text-muted-foreground max-w-lg mx-auto">
-              Like having a brilliant friend explain any concept to you in simple, real-world analogies.
-            </p>
-          </div>
-        )}
-
-        {/* Input & Mode Controls Card */}
-        <div className="rounded-3xl border border-border/60 bg-card p-6 shadow-sm space-y-6">
-          <ModeSelector
-            modes={MODES}
-            selectedMode={mode}
-            onSelectMode={(m) => setMode(m)}
-          />
-
-          <TopicInput
-            topic={topic}
-            setTopic={setTopic}
-            loading={loading}
-            streaming={streaming}
-            onGenerate={handleGenerate}
-            onStop={handleStop}
-          />
-        </div>
-
-        {/* Generated Explanation Display */}
-        <ExplanationCard
-          result={result}
-          activeSection={activeSection}
-          onStartQuiz={handleStartQuiz}
-          onAskFollowup={(text) => handleSendChat(text)}
-          speaking={speaking}
-          speakingWhat={speakingWhat}
-          onSpeak={handleSpeak}
-          onStopSpeak={handleStopSpeak}
-          onShare={handleShare}
-          onExportPdf={handleExportPdf}
+    <div className="min-h-screen bg-background text-foreground transition-colors selection:bg-purple-500/20 selection:text-purple-600 flex flex-col justify-between">
+      <div>
+        {/* Navigation Header */}
+        <Header
+          theme={theme}
+          setTheme={handleSetTheme}
+          language={language}
+          setLanguage={handleSetLanguage}
+          languages={LANGUAGES}
+          historyOpen={historyOpen}
+          setHistoryOpen={setHistoryOpen}
+          historyCount={history.length}
+          stats={stats}
         />
-      </main>
+
+        {/* Main Container */}
+        <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6 space-y-8">
+          {/* Intro Hero Banner */}
+          {!result && (
+            <div className="text-center space-y-3 py-6 animate-in fade-in-up duration-300">
+              <div className="inline-flex items-center gap-2 rounded-full border border-purple-200/80 dark:border-purple-800/80 bg-gradient-to-r from-purple-500/10 via-pink-500/10 to-amber-500/10 px-4 py-1 text-xs font-bold text-purple-700 dark:text-purple-300 shadow-xs">
+                <Sparkles className="h-3.5 w-3.5 text-amber-500 fill-amber-500 animate-spin" />
+                <span>AI Clarity & Learning Partner</span>
+              </div>
+              <h2 className="text-3xl sm:text-5xl font-black tracking-tight text-gradient-brand leading-tight">
+                Understand Better. Learn Smarter.
+              </h2>
+              <p className="text-sm sm:text-base text-muted-foreground max-w-lg mx-auto font-medium">
+                Explaining complex concepts like a smart senior sitting right next to you—with simple words, real-life analogies, and step-by-step action roadmaps.
+              </p>
+            </div>
+          )}
+
+          {/* Input & Mode Controls Card */}
+          <div className="rounded-3xl border border-purple-200/60 dark:border-purple-900/40 bg-card p-6 shadow-md space-y-6">
+            <ModeSelector
+              modes={MODES}
+              selectedMode={mode}
+              onSelectMode={(m) => setMode(m)}
+            />
+
+            <TopicInput
+              topic={topic}
+              setTopic={setTopic}
+              loading={loading}
+              streaming={streaming}
+              onGenerate={handleGenerate}
+              onStop={handleStop}
+            />
+          </div>
+
+          {/* Generated Explanation Display */}
+          <ExplanationCard
+            result={result}
+            activeSection={activeSection}
+            onStartQuiz={handleStartQuiz}
+            onAskFollowup={(text) => handleSendChat(text)}
+            speaking={speaking}
+            speakingWhat={speakingWhat}
+            onSpeak={handleSpeak}
+            onStopSpeak={handleStopSpeak}
+            onShare={handleShare}
+            onExportPdf={handleExportPdf}
+          />
+        </main>
+      </div>
 
       {/* Interactive Pop Quiz Modal */}
       <QuizModal
@@ -644,8 +686,64 @@ export default function Home() {
         loading={historyLoading}
       />
 
-      {/* Website Footer */}
-      <Footer />
+      {/* Why BrainMate Modal */}
+      {whyBrainMateOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4 animate-in fade-in duration-200">
+          <div className="relative w-full max-w-lg rounded-3xl border border-purple-200 dark:border-purple-900/60 bg-card p-6 shadow-2xl space-y-5">
+            <div className="flex items-center justify-between border-b border-border/60 pb-3.5">
+              <div className="flex items-center gap-2.5">
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-100 dark:bg-purple-950 text-purple-600 dark:text-purple-300 font-bold">
+                  <Brain className="h-5 w-5" />
+                </span>
+                <div>
+                  <h3 className="text-base font-extrabold text-foreground">Why BrainMate is Unique</h3>
+                  <p className="text-xs text-muted-foreground">Built for instant clarity & real retention</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setWhyBrainMateOpen(false)}
+                className="rounded-xl p-1.5 text-muted-foreground hover:bg-muted transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs text-muted-foreground leading-relaxed">
+              <div className="p-3.5 rounded-2xl border border-purple-100 dark:border-purple-900/40 bg-purple-500/5 space-y-1">
+                <span className="font-bold text-sm text-purple-700 dark:text-purple-300 flex items-center gap-1.5">
+                  <CheckCircle2 className="h-4 w-4 text-purple-500" /> Smart Senior Explanations
+                </span>
+                <p>
+                  Instead of dense textbook dumps, BrainMate breaks down any topic into everyday terms, real-life analogies, and step-by-step action roadmaps.
+                </p>
+              </div>
+
+              <div className="p-3.5 rounded-2xl border border-pink-100 dark:border-pink-900/40 bg-pink-500/5 space-y-1">
+                <span className="font-bold text-sm text-pink-700 dark:text-pink-300 flex items-center gap-1.5">
+                  <Zap className="h-4 w-4 text-pink-500" /> Interactive Pop Quizzes & Audio
+                </span>
+                <p>
+                  Test your understanding instantly with AI-generated pop quizzes and listen to explanations hands-free using speech synthesis.
+                </p>
+              </div>
+            </div>
+
+            <div className="pt-2 flex items-center gap-3">
+              <Link
+                href="/about"
+                onClick={() => setWhyBrainMateOpen(false)}
+                className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 via-pink-600 to-amber-500 py-2.5 text-xs font-bold text-white shadow-md hover:scale-105 transition-all"
+              >
+                <span>Read Full Story on About Page</span>
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Website Compact Strip Footer */}
+      <Footer onOpenWhyBrainMate={() => setWhyBrainMateOpen(true)} />
     </div>
   );
 }
