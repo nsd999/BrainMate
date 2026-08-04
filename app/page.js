@@ -8,6 +8,7 @@ import ExplanationCard from '@/components/ExplanationCard';
 import QuizModal from '@/components/QuizModal';
 import ChatDrawer from '@/components/ChatDrawer';
 import HistorySidebar from '@/components/HistorySidebar';
+import Footer from '@/components/Footer';
 
 import { jsPDF } from 'jspdf';
 import { toast } from 'sonner';
@@ -642,6 +643,9 @@ export default function Home() {
         onDeleteHistory={handleDeleteHistory}
         loading={historyLoading}
       />
+
+      {/* Website Footer */}
+      <Footer />
     </div>
   );
 }
