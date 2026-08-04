@@ -257,15 +257,15 @@ export default function ExplanationCard({
             <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2.5">
               3-Step Action Plan
             </h4>
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-2.5">
               {result.action_plan.map((item, idx) => (
-                <div key={idx} className="flex items-center gap-2.5 text-xs">
+                <div key={idx} className="flex items-start gap-2.5 text-xs leading-relaxed">
                   {item.time && (
-                    <span className="inline-flex items-center gap-1 shrink-0 rounded-md bg-muted px-2 py-0.5 font-semibold text-muted-foreground border border-border text-[11px]">
-                      <Clock className="h-3 w-3" /> {item.time}
+                    <span className="inline-flex items-center gap-1 shrink-0 rounded-md bg-muted px-2 py-0.5 font-semibold text-muted-foreground border border-border text-[11px] mt-0.5">
+                      <Clock className="h-3 w-3 text-indigo-500" /> {item.time}
                     </span>
                   )}
-                  <span className="text-foreground/90 font-medium truncate">{item.step}</span>
+                  <span className="text-foreground/90 font-medium whitespace-normal break-words flex-1 leading-normal">{item.step}</span>
                 </div>
               ))}
             </div>
