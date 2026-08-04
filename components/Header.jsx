@@ -197,16 +197,29 @@ export default function Header({
 
       {/* Gamification / Level Progress Modal */}
       {levelModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-          <div className="relative w-full max-w-sm rounded-3xl border border-indigo-500/30 bg-card p-6 shadow-2xl space-y-4">
+        <div
+          onClick={() => {
+            playPop();
+            setLevelModalOpen(false);
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150 cursor-pointer"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="relative w-full max-w-sm rounded-3xl border border-indigo-500/30 bg-card p-6 shadow-2xl space-y-4 cursor-default"
+          >
             <div className="flex items-center justify-between border-b border-border pb-3">
               <div className="flex items-center gap-2">
                 <Trophy className="h-5 w-5 text-amber-500 fill-amber-500" />
                 <h3 className="text-base font-extrabold text-foreground">Learning Rewards</h3>
               </div>
               <button
-                onClick={() => setLevelModalOpen(false)}
-                className="rounded-xl p-1 text-muted-foreground hover:bg-muted"
+                type="button"
+                onClick={() => {
+                  playPop();
+                  setLevelModalOpen(false);
+                }}
+                className="rounded-xl p-1.5 text-muted-foreground hover:bg-muted transition-colors cursor-pointer"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -251,6 +264,7 @@ export default function Header({
           </div>
         </div>
       )}
+
 
       {/* Brand Side Menu / Drawer */}
       {brandMenuOpen && (

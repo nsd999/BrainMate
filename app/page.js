@@ -51,35 +51,63 @@ function parsePartial(buffer) {
     active: null
   };
 
-  const sections = [
-    { tag: 'SIMPLE', key: 'simple_explanation', type: 'text' },
-    { tag: 'ANALOGY', key: 'real_life_analogy', type: 'text' },
-    { tag: 'STEPS', key: 'step_by_step', type: 'bullets' },
-    { tag: 'SUMMARY', key: 'summary', type: 'text' },
-    { tag: 'ACTIONS', key: 'action_plan', type: 'actions' }
+  if (!buffer || typeof buffer !== 'string') return out;
+
+  const tagList = [
+    { tag: 'SIMPLE', key: 'simple_explanation' },
+    { tag: 'ANALOGY', key: 'real_life_analogy' },
+    { tag: 'STEPS', key: 'step_by_step' },
+    { tag: 'SUMMARY', key: 'summary' },
+    { tag: 'ACTIONS', key: 'action_plan' }
   ];
 
-  for (const s of sections) {
-    const openTag = `<<${s.tag}>>`;
+  const allTags = ['SIMPLE', 'ANALOGY', 'STEPS', 'SUMMARY', 'ACTIONS', 'END'];
+
+  for (let i = 0; i < tagList.length; i++) {
+    const { tag, key } = tagList[i];
+    const openTag = `<<${tag}>>`;
     const startIdx = buffer.indexOf(openTag);
-    if (startIdx === -1) continue;
-    const afterStart = startIdx + openTag.length;
-    const endIdx = buffer.indexOf('<<END>>', afterStart);
-    const isClosed = endIdx !== -1;
-    const raw = isClosed ? buffer.slice(afterStart, endIdx) : buffer.slice(afterStart);
-    const content = raw.replace(/^\n+/, '').replace(/\n+$/, '');
 
-    if (!isClosed) out.active = s.key;
+    let afterStart = -1;
+    if (startIdx !== -1) {
+      afterStart = startIdx + openTag.length;
+    } else if (i === 0) {
+      // Fallback: If <<SIMPLE>> is omitted at the start of buffer, start from 0
+      afterStart = 0;
+    }
 
-    if (s.type === 'text') {
-      out[s.key] = content;
-    } else if (s.type === 'bullets') {
-      out[s.key] = content
+    if (afterStart === -1) continue;
+
+    // Find nearest termination tag (either <<END>> or ANY subsequent section tag)
+    let minEndIdx = -1;
+    for (const t of allTags) {
+      const nextIdx = buffer.indexOf(`<<${t}>>`, afterStart);
+      if (nextIdx !== -1 && (minEndIdx === -1 || nextIdx < minEndIdx)) {
+        minEndIdx = nextIdx;
+      }
+    }
+
+    const isClosed = minEndIdx !== -1;
+    const raw = isClosed ? buffer.slice(afterStart, minEndIdx) : buffer.slice(afterStart);
+
+    // Clean any stray <<...>> tags from content
+    let content = raw
+      .replace(/<<[A-Z]+>>/g, '')
+      .replace(/^\n+/, '')
+      .replace(/\n+$/, '')
+      .trim();
+
+    if (!isClosed && content.length > 0) out.active = key;
+
+    if (key === 'simple_explanation' || key === 'real_life_analogy' || key === 'summary') {
+      out[key] = content;
+    } else if (key === 'step_by_step') {
+      out.step_by_step = content
         .split('\n')
         .map((l) => l.replace(/^\s*[-*]\s*/, '').trim())
         .filter(Boolean);
-    } else if (s.type === 'actions') {
-      out[s.key] = content
+    } else if (key === 'action_plan') {
+      out.action_plan = content
         .split('\n')
         .map((l) => l.replace(/^\s*[-*]\s*/, '').trim())
         .filter(Boolean)
@@ -90,8 +118,10 @@ function parsePartial(buffer) {
         });
     }
   }
+
   return out;
 }
+
 
 export default function Home() {
   const [topic, setTopic] = useState('');
