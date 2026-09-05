@@ -32,7 +32,7 @@ const themeBootstrap = `
       window.matchMedia &&
       window.matchMedia('(prefers-color-scheme: dark)').matches;
 
-    var dark = t ? t === 'dark' : prefersDark;
+    var dark = t ? t === 'dark' : true;
 
     if (dark) {
       document.documentElement.classList.add('dark');

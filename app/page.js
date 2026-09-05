@@ -178,7 +178,7 @@ export default function Home() {
       }
       setUserId(uid);
 
-      const savedTheme = localStorage.getItem(THEME_KEY) || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      const savedTheme = localStorage.getItem(THEME_KEY) || 'dark';
       setTheme(savedTheme);
       document.documentElement.classList.toggle('dark', savedTheme === 'dark');
 
