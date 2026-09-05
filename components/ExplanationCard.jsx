@@ -48,8 +48,8 @@ export default function ExplanationCard({
 
   const copySection = (title, content) => {
     playPop();
-    navigator.clipboard.writeText(`${title}:\n${content}`);
-    toast.success(`Copied ${title} to clipboard!`);
+    navigator.clipboard.writeText(content);
+    toast.success(`Copied to clipboard!`);
   };
 
   const handleReaction = (type) => {
@@ -199,8 +199,8 @@ export default function ExplanationCard({
           {result.simple_explanation && (
             <div
               className={cn(
-                'group relative rounded-3xl border border-indigo-500/30 bg-gradient-to-br from-indigo-500/5 via-card to-card p-6 transition-all duration-200 shadow-md magnetic-card',
-                activeSection === 'simple_explanation' && 'ring-2 ring-indigo-500 border-indigo-500'
+                'group relative rounded-2xl border border-border bg-card p-5 transition-all duration-200 shadow-sm',
+                activeSection === 'simple_explanation' && 'ring-2 ring-foreground border-foreground'
               )}
             >
               <div className="flex items-center justify-between mb-3.5">
@@ -250,8 +250,8 @@ export default function ExplanationCard({
           {result.real_life_analogy && (
             <div
               className={cn(
-                'group relative rounded-3xl border border-pink-500/30 bg-gradient-to-br from-pink-500/5 via-card to-card p-6 transition-all duration-200 shadow-md magnetic-card',
-                activeSection === 'real_life_analogy' && 'ring-2 ring-pink-500 border-pink-500'
+                'group relative rounded-2xl border border-border bg-card p-5 transition-all duration-200 shadow-sm',
+                activeSection === 'real_life_analogy' && 'ring-2 ring-foreground border-foreground'
               )}
             >
               <div className="flex items-center justify-between mb-3.5">
@@ -299,7 +299,7 @@ export default function ExplanationCard({
 
           {/* 3. Step-by-Step Breakdown Card */}
           {Array.isArray(result.step_by_step) && result.step_by_step.length > 0 && (
-            <div className="rounded-3xl border border-emerald-500/30 bg-gradient-to-br from-emerald-500/5 via-card to-card p-6 shadow-md magnetic-card">
+            <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2.5">
                   <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-600 text-white font-extrabold shadow-md shadow-emerald-500/25">
@@ -332,7 +332,7 @@ export default function ExplanationCard({
           {/* 4. Summary & Action Plan Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {result.summary && (
-              <div className="rounded-3xl border border-border/80 bg-card p-5 shadow-sm">
+              <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="text-xs font-black uppercase tracking-wider text-muted-foreground">
                     Quick Summary
@@ -351,7 +351,7 @@ export default function ExplanationCard({
             )}
 
             {Array.isArray(result.action_plan) && result.action_plan.length > 0 && (
-              <div className="rounded-3xl border border-border/80 bg-card p-5 shadow-sm">
+              <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
                 <h4 className="text-xs font-black uppercase tracking-wider text-muted-foreground mb-3">
                   3-Step Action Plan
                 </h4>

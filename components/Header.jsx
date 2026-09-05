@@ -52,7 +52,7 @@ export default function Header({
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-border/80 bg-background/80 backdrop-blur-xl shadow-xs transition-all">
-      <div className="mx-auto flex max-w-5xl items-center justify-between px-3 sm:px-6 py-2.5">
+      <div className="mx-auto flex max-w-5xl w-full items-center justify-between px-4 sm:px-6 py-3">
         {/* Top-Left Brand Logo (Clickable -> Opens Side Menu) */}
         <div className="relative">
           <button
@@ -64,7 +64,7 @@ export default function Header({
             className="flex items-center gap-2.5 group text-left focus:outline-none rounded-2xl p-1 -ml-1 transition-all hover:bg-muted/60 active:scale-95"
             title="Menu & Brand links"
           >
-            <div className="relative h-9 w-9 rounded-xl overflow-hidden shadow-md group-hover:scale-105 transition-transform border border-indigo-500/30 rainbow-border">
+            <div className="relative h-9 w-9 rounded-xl overflow-hidden shadow-sm group-hover:scale-105 transition-transform border border-border">
               <img
                 src="/logo.png"
                 alt="BrainMate Logo"
@@ -73,16 +73,10 @@ export default function Header({
             </div>
             <div>
               <div className="flex items-center gap-1.5">
-                <h1 className="text-base sm:text-lg font-black tracking-tight bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500 dark:from-indigo-400 dark:via-purple-400 dark:to-pink-400 bg-clip-text text-transparent group-hover:opacity-90 transition-opacity">
+                <h1 className="text-base font-bold tracking-tight text-foreground transition-opacity">
                   BrainMate
                 </h1>
-                <span className="inline-flex items-center rounded-full bg-indigo-500/10 px-2 py-0.5 text-[10px] font-bold text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
-                  v2.5
-                </span>
               </div>
-              <p className="text-[10px] text-muted-foreground hidden sm:block font-semibold">
-                Menu & Links ▾
-              </p>
             </div>
           </button>
         </div>
@@ -110,10 +104,10 @@ export default function Header({
               playPop();
               setLevelModalOpen(true);
             }}
-            className="hidden xs:flex items-center gap-1 rounded-xl border border-purple-500/30 bg-purple-500/10 dark:bg-purple-500/15 px-2.5 py-1 text-xs font-extrabold text-purple-600 dark:text-purple-300 hover:scale-105 transition-all cursor-pointer shadow-xs active:scale-95"
+            className="flex items-center gap-1 rounded-xl border border-border bg-muted/50 px-2.5 py-1 text-xs font-semibold text-foreground hover:scale-105 transition-all cursor-pointer shadow-sm active:scale-95"
             title="Experience Level"
           >
-            <Zap className="h-3.5 w-3.5 fill-purple-500 text-purple-500" />
+            <Zap className="h-3.5 w-3.5" />
             <span>Lvl {level}</span>
           </button>
 
@@ -185,7 +179,7 @@ export default function Header({
             className="h-8.5 gap-1.5 rounded-xl text-xs font-bold"
           >
             <History className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">History</span>
+            <span className="hidden">History</span>
             {historyCount > 0 && (
               <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-indigo-600 text-white px-1 text-[10px] font-extrabold">
                 {historyCount}

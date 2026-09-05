@@ -26,15 +26,15 @@
     --ring: 239 84% 60%;
     --radius: 1rem;
 
-    /* Handcrafted vibrant semantic tokens (light) */
+    /* Handcrafted minimal semantic tokens (light) */
     --bm-bg: #F8FAFC;
-    --bm-card: rgba(255, 255, 255, 0.85);
+    --bm-card: rgba(255, 255, 255, 0.95);
     --bm-text: #0F172A;
-    --bm-text-soft: #475569;
-    --bm-text-faint: #94A3B8;
+    --bm-text-soft: #334155;
+    --bm-text-faint: #64748B;
     --bm-border: rgba(226, 232, 240, 0.8);
     --bm-subtle: #F1F5F9;
-    --bm-accent: #4F46E5;
+    --bm-accent: #312E81;
     --bm-accent-hover: #4338CA;
     --bm-accent-soft: #EEF2FF;
   }
@@ -60,16 +60,16 @@
     --input: 215 28% 16%;
     --ring: 239 84% 67%;
 
-    /* Handcrafted dark tokens */
-    --bm-bg: #090D16;
-    --bm-card: rgba(17, 24, 39, 0.80);
-    --bm-text: #F9FAFB;
-    --bm-text-soft: #9CA3AF;
-    --bm-text-faint: #6B7280;
-    --bm-border: rgba(31, 41, 55, 0.8);
-    --bm-subtle: #171F2E;
-    --bm-accent: #6366F1;
-    --bm-accent-hover: #818CF8;
+    /* Handcrafted minimal dark tokens */
+    --bm-bg: #020617;
+    --bm-card: rgba(15, 23, 42, 0.85);
+    --bm-text: #F8FAFC;
+    --bm-text-soft: #94A3B8;
+    --bm-text-faint: #475569;
+    --bm-border: rgba(30, 41, 59, 0.8);
+    --bm-subtle: #0F172A;
+    --bm-accent: #818CF8;
+    --bm-accent-hover: #A5B4FC;
     --bm-accent-soft: #1E1B4B;
   }
 }
@@ -88,66 +88,9 @@
   }
 }
 
-/* Dynamic Ambient Glow Background - Lightweight & Fast */
-.bg-ambient-mesh {
-  background-image: 
-    radial-gradient(circle at 15% 15%, rgba(99, 102, 241, 0.08) 0%, transparent 40%),
-    radial-gradient(circle at 85% 85%, rgba(236, 72, 153, 0.06) 0%, transparent 40%);
-}
-
-.dark .bg-ambient-mesh {
-  background-image: 
-    radial-gradient(circle at 15% 15%, rgba(99, 102, 241, 0.15) 0%, transparent 40%),
-    radial-gradient(circle at 85% 85%, rgba(236, 72, 153, 0.12) 0%, transparent 40%);
-}
-
-/* Optimized Lightweight Glassmorphism & GPU Acceleration */
-.glass-panel {
-  background: var(--bm-card);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid var(--bm-border);
-  transform: translateZ(0);
-}
-
-.glass-card-vivid {
-  background: rgba(255, 255, 255, 0.90);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(226, 232, 240, 0.8);
-  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
-  transform: translateZ(0);
-}
-
-.dark .glass-card-vivid {
-  background: rgba(17, 24, 39, 0.90);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
-  transform: translateZ(0);
-}
-
-/* Fast, Lightweight Magnetic Card Hover Physics */
-.magnetic-card {
-  transition: transform 0.18s ease-out, box-shadow 0.18s ease-out, border-color 0.18s ease-out;
-  transform: translateZ(0);
-  will-change: transform;
-}
-
-.magnetic-card:hover {
-  transform: translateY(-2px);
-}
-
-.magnetic-card:active {
-  transform: translateY(0px);
-}
-
-/* Static Vibrant Border Gradient */
+/* Simple Border */
 .rainbow-border {
-  border: 1.5px solid transparent;
-  background: linear-gradient(var(--bm-card), var(--bm-card)) padding-box,
-              linear-gradient(135deg, #6366F1, #EC4899, #F59E0B) border-box;
+  border: 1px solid var(--bm-border);
 }
 
 /* 3D Flashcard Flip utilities */
