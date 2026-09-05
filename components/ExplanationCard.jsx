@@ -39,8 +39,6 @@ export default function ExplanationCard({
   onExportPdf,
   onAddXp
 }) {
-  const [flashcardMode, setFlashcardMode] = useState(false);
-  const [flipped, setFlipped] = useState(false);
   const [reactions, setReactions] = useState({ mindBlown: 0, superClear: 0, needDetail: 0 });
   const [userReacted, setUserReacted] = useState({});
 
@@ -48,7 +46,7 @@ export default function ExplanationCard({
 
   const copySection = (title, content) => {
     playPop();
-    navigator.clipboard.writeText(`${title}:\n${content}`);
+    navigator.clipboard.writeText(content);
     toast.success(`Copied ${title} to clipboard!`);
   };
 
@@ -90,27 +88,8 @@ export default function ExplanationCard({
           </p>
         </div>
 
-        {/* Action bar (Flashcard toggle, Share, Export, Quiz) */}
+        {/* Action bar (Share, Export, Quiz) */}
         <div className="flex flex-wrap items-center gap-2">
-          {/* Flashcard Flip Mode Toggle */}
-          <Button
-            variant={flashcardMode ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => {
-              playFlip();
-              setFlashcardMode(!flashcardMode);
-              setFlipped(false);
-            }}
-            className={cn(
-              'h-9 gap-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer',
-              flashcardMode
-                ? 'bg-purple-600 hover:bg-purple-700 text-white shadow-md shadow-purple-500/25'
-                : 'border-purple-500/30 text-purple-600 dark:text-purple-400 hover:bg-purple-500/10'
-            )}
-          >
-            <Layers className="h-3.5 w-3.5" />
-            <span>{flashcardMode ? 'Normal View' : '🎴 Flashcard Mode'}</span>
-          </Button>
 
           <Button
             variant="outline"
@@ -152,49 +131,8 @@ export default function ExplanationCard({
         </div>
       </div>
 
-      {/* FLASHCARD INTERACTIVE FLIP MODE */}
-      {flashcardMode ? (
-        <div className="perspective-1000 my-4">
-          <div
-            onClick={() => {
-              playFlip();
-              setFlipped(!flipped);
-            }}
-            className={cn(
-              'relative min-h-[260px] w-full rounded-3xl border-2 border-indigo-500/40 bg-gradient-to-br from-indigo-500/15 via-card to-purple-500/15 p-8 text-center flex flex-col items-center justify-center cursor-pointer shadow-2xl transition-all duration-500 transform-style-3d hover:scale-[1.01]',
-              flipped ? 'rotate-y-180 bg-gradient-to-br from-purple-500/20 via-card to-pink-500/20' : ''
-            )}
-          >
-            {!flipped ? (
-              <div className="space-y-4">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-purple-500/20 px-3 py-1 text-xs font-extrabold text-purple-600 dark:text-purple-300">
-                  <Brain className="h-4 w-4" /> Flashcard Front
-                </span>
-                <h3 className="text-xl sm:text-2xl font-black text-foreground max-w-md mx-auto">
-                  What is {result.topic}?
-                </h3>
-                <p className="text-xs text-muted-foreground font-semibold flex items-center justify-center gap-1.5 pt-4">
-                  <RotateCw className="h-4 w-4 text-indigo-500 animate-spin-slow" /> Tap card to flip & reveal simple explanation
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-4 [transform:rotateY(180deg)]">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-extrabold text-emerald-600 dark:text-emerald-300">
-                  <CheckCircle2 className="h-4 w-4" /> Explanation Answer
-                </span>
-                <p className="text-sm sm:text-base font-semibold leading-relaxed text-foreground max-w-lg mx-auto">
-                  {result.simple_explanation}
-                </p>
-                <p className="text-xs text-muted-foreground font-medium pt-2">
-                  Tap again to flip back
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
-      ) : (
-        /* STANDARD VIBRANT CARDS VIEW */
-        <div className="space-y-6">
+      {/* STANDARD VIBRANT CARDS VIEW */}
+      <div className="space-y-6">
           {/* 1. Simple Explanation Card */}
           {result.simple_explanation && (
             <div
@@ -371,7 +309,6 @@ export default function ExplanationCard({
             )}
           </div>
         </div>
-      )}
 
       {/* Interactive Reaction & Feedback Buttons */}
       <div className="rounded-3xl border border-border/80 bg-card/90 backdrop-blur-xl p-5 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">

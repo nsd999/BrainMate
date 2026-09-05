@@ -577,6 +577,15 @@ export default function Home() {
     if (!result) return;
     try {
       const doc = new jsPDF();
+      
+      const checkPageBreak = (currentY, neededSpace) => {
+        if (currentY + neededSpace > 280) {
+          doc.addPage();
+          return 20;
+        }
+        return currentY;
+      };
+
       doc.setFontSize(18);
       doc.text(`BrainMate: ${result.topic}`, 14, 20);
 
@@ -588,6 +597,7 @@ export default function Home() {
       let y = 44;
 
       if (result.simple_explanation) {
+        y = checkPageBreak(y, 20);
         doc.setFontSize(12);
         doc.setTextColor(0);
         doc.text('The Core Idea:', 14, y);
@@ -599,6 +609,7 @@ export default function Home() {
       }
 
       if (result.real_life_analogy) {
+        y = checkPageBreak(y, 20);
         doc.setFontSize(12);
         doc.setTextColor(0);
         doc.text('Real-World Analogy:', 14, y);
@@ -609,7 +620,40 @@ export default function Home() {
         y += lines.length * 5 + 6;
       }
 
+      if (Array.isArray(result.step_by_step) && result.step_by_step.length > 0) {
+        y = checkPageBreak(y, 20);
+        doc.setFontSize(12);
+        doc.setTextColor(0);
+        doc.text('Step-by-Step Breakdown:', 14, y);
+        y += 6;
+        doc.setFontSize(10);
+        result.step_by_step.forEach(step => {
+          y = checkPageBreak(y, 10);
+          const lines = doc.splitTextToSize(`• ${step}`, 175);
+          doc.text(lines, 18, y);
+          y += lines.length * 5 + 2;
+        });
+        y += 4;
+      }
+
+      if (Array.isArray(result.action_plan) && result.action_plan.length > 0) {
+        y = checkPageBreak(y, 20);
+        doc.setFontSize(12);
+        doc.setTextColor(0);
+        doc.text('Action Plan:', 14, y);
+        y += 6;
+        doc.setFontSize(10);
+        result.action_plan.forEach(item => {
+          y = checkPageBreak(y, 10);
+          const lines = doc.splitTextToSize(`[${item.time}] ${item.step}`, 175);
+          doc.text(lines, 18, y);
+          y += lines.length * 5 + 2;
+        });
+        y += 4;
+      }
+
       if (result.summary) {
+        y = checkPageBreak(y, 20);
         doc.setFontSize(12);
         doc.setTextColor(0);
         doc.text('Quick Summary:', 14, y);
