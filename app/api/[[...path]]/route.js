@@ -882,7 +882,7 @@ export async function POST(request, { params }) {
 
             send('done', { finished_at: new Date().toISOString() });
           } catch (err) {
-            send('error', { message: 'Stream generation failed' });
+            send('error', { message: err?.message || 'Stream generation failed' });
           } finally {
             controller.close();
           }
@@ -964,7 +964,7 @@ Rules:
 
             send('done', { finished_at: new Date().toISOString() });
           } catch (err) {
-            send('error', { message: 'Stream generation failed' });
+            send('error', { message: err?.message || 'Stream generation failed' });
           } finally {
             controller.close();
           }
