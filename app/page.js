@@ -127,7 +127,7 @@ export default function Home() {
   const [topic, setTopic] = useState('');
   const [mode, setMode] = useState('student');
   const [language, setLanguage] = useState('English');
-  const [theme, setTheme] = useState('light');
+  const [theme, setTheme] = useState('dark');
 
   const [loading, setLoading] = useState(false);
   const [streaming, setStreaming] = useState(false);
@@ -370,6 +370,13 @@ export default function Home() {
                 setActiveSection(partial.active);
               }
             } catch (e) {}
+          } else if (evt === 'error') {
+            try {
+              const { message } = JSON.parse(dataLine);
+              throw new Error(message || 'Stream generation failed');
+            } catch (e) {
+              throw new Error('Stream generation failed');
+            }
           }
         }
       }
