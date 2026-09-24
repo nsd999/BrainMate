@@ -928,16 +928,17 @@ export async function POST(request, { params }) {
     // ========== POST /api/explain/stream (STREAMING) ==========
     if (route === 'explain/stream') {
       const body = await request.json();
-      const topic = (body?.topic || '').toString().trim();
-      const mode = (body?.mode || 'student').toString().toLowerCase();
-      const language = (body?.language || 'English').toString();
+      const topicResult = validateTopic(body?.topic);
+      const modeResult = validateMode(body?.mode);
+      const languageResult = validateLanguage(body?.language);
 
-      if (!topic) {
-        return NextResponse.json({ error: 'topic is required' }, { status: 400 });
-      }
-      if (topic.length > 500) {
-        return NextResponse.json({ error: 'topic too long (max 500 chars)' }, { status: 400 });
-      }
+      if (topicResult.error) return NextResponse.json({ error: topicResult.error }, { status: 400 });
+      if (modeResult.error) return NextResponse.json({ error: modeResult.error }, { status: 400 });
+      if (languageResult.error) return NextResponse.json({ error: languageResult.error }, { status: 400 });
+
+      const topic = topicResult.value;
+      const mode = modeResult.value;
+      const language = languageResult.value;
 
       const encoder = new TextEncoder();
       const stream = new ReadableStream({
@@ -963,7 +964,7 @@ export async function POST(request, { params }) {
             send('done', { finished_at: new Date().toISOString() });
           } catch (err) {
             console.error('[explain stream error]', err);
-      send('error', { message: 'I could not generate that explanation right now. Please try again.' });
+            send('error', { message: 'I could not generate that explanation right now. Please try again.' });
           } finally {
             controller.close();
           }
@@ -1059,7 +1060,7 @@ Rules:
             send('done', { finished_at: new Date().toISOString() });
           } catch (err) {
             console.error('[chat stream error]', err);
-      send('error', { message: 'I could not answer that right now. Please try again.' });
+            send('error', { message: 'I could not answer that right now. Please try again.' });
           } finally {
             controller.close();
           }
