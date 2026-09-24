@@ -414,6 +414,9 @@ export default function Home() {
       if (finalResult.simple_explanation || finalResult.summary) {
         handleAddXp(20);
         recordLearningActivity();
+        try {
+          localStorage.setItem('brainmate.last_learning_at', new Date().toISOString());
+        } catch (e) {}
         saveToHistory({
           id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
           topic: t,
