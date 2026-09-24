@@ -41,10 +41,10 @@ export default function ModeSelector({ modes, selectedMode, onSelectMode }) {
   return (
     <div className="flex flex-col gap-2.5">
       <div className="flex items-center justify-between">
-        <label className="text-xs font-black uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+        <div className="text-xs font-black uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
           <Sparkles className="h-3.5 w-3.5 text-indigo-500" />
           Explanation Depth
-        </label>
+        </div>
         <span className="text-[11px] text-muted-foreground font-semibold">
           Select explanation style
         </span>
@@ -60,12 +60,14 @@ export default function ModeSelector({ modes, selectedMode, onSelectMode }) {
             <button
               key={mode.id}
               type="button"
+              aria-pressed={isSelected}
+              aria-label={config.title + ' — ' + config.hint}
               onClick={() => {
                 playPop();
                 onSelectMode(mode.id);
               }}
               className={cn(
-                'group relative flex items-center sm:flex-col sm:items-start gap-3 sm:gap-2.5 rounded-2xl border p-3.5 text-left transition-all duration-200 focus:outline-none magnetic-card cursor-pointer',
+                'group relative flex items-center sm:flex-col sm:items-start gap-3 sm:gap-2.5 rounded-2xl border p-3.5 text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 magnetic-card cursor-pointer',
                 isSelected
                   ? cn('border-2 bg-gradient-to-br ring-2 shadow-lg', config.gradientBg, config.borderActive)
                   : 'border-border/80 bg-card/80 text-foreground hover:border-border hover:bg-muted/40 hover:shadow-md'

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
   Sun,
@@ -9,7 +9,6 @@ import {
   History,
   Star,
   Instagram,
-  Globe,
   ArrowUpRight,
   X,
   Bell,
@@ -25,7 +24,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { requestNotificationPermission } from '@/lib/notifications';
+import { isNotificationEnabled, requestNotificationPermission } from '@/lib/notifications';
 import { playClick, playPop } from '@/lib/sound';
 
 export default function Header({
@@ -45,6 +44,23 @@ export default function Header({
 }) {
   const [brandMenuOpen, setBrandMenuOpen] = useState(false);
   const [levelModalOpen, setLevelModalOpen] = useState(false);
+  const [notificationEnabled, setNotificationEnabled] = useState(false);
+
+  useEffect(() => {
+    setNotificationEnabled(isNotificationEnabled());
+  }, []);
+
+  useEffect(() => {
+    if (!brandMenuOpen && !levelModalOpen) return;
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setBrandMenuOpen(false);
+        setLevelModalOpen(false);
+      }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [brandMenuOpen, levelModalOpen]);
 
   // Calculate Level (Every 100 XP is 1 Level)
   const level = Math.floor(xp / 100) + 1;
@@ -61,8 +77,10 @@ export default function Header({
               playClick();
               setBrandMenuOpen(!brandMenuOpen);
             }}
-            className="flex items-center gap-2.5 group text-left focus:outline-none rounded-2xl p-1 -ml-1 transition-all hover:bg-muted/60 active:scale-95"
+            className="flex items-center gap-2.5 group text-left rounded-2xl p-1 -ml-1 transition-all hover:bg-muted/60 active:scale-95"
             title="Menu & Brand links"
+            aria-label="Open BrainMate menu"
+            aria-expanded={brandMenuOpen}
           >
             <div className="relative h-9 w-9 rounded-xl overflow-hidden shadow-sm group-hover:scale-105 transition-transform border border-border">
               <img
@@ -92,6 +110,7 @@ export default function Header({
             }}
             className="flex items-center gap-1 rounded-xl border border-amber-500/30 bg-amber-500/10 dark:bg-amber-500/15 px-2.5 py-1 text-xs font-extrabold text-amber-600 dark:text-amber-400 hover:scale-105 transition-all cursor-pointer shadow-xs active:scale-95"
             title="Daily Learning Streak"
+            aria-label={streak + ' day learning streak'}
           >
             <Flame className="h-4 w-4 fill-amber-500 text-amber-500 animate-bounce-subtle" />
             <span>{streak}d</span>
@@ -106,6 +125,7 @@ export default function Header({
             }}
             className="flex items-center gap-1 rounded-xl border border-border bg-muted/50 px-2.5 py-1 text-xs font-semibold text-foreground hover:scale-105 transition-all cursor-pointer shadow-sm active:scale-95"
             title="Experience Level"
+            aria-label={'Level ' + level + ', ' + xp + ' XP'}
           >
             <Zap className="h-3.5 w-3.5" />
             <span>Lvl {level}</span>
@@ -122,6 +142,7 @@ export default function Header({
             }}
             className="h-8.5 w-8.5 rounded-xl border-border/80 hover:bg-muted/80"
             title={soundMuted ? 'Unmute UI sounds' : 'Mute UI sounds'}
+            aria-label={soundMuted ? 'Unmute UI sounds' : 'Mute UI sounds'}
           >
             {soundMuted ? (
               <VolumeX className="h-4 w-4 text-rose-500" />
@@ -138,7 +159,7 @@ export default function Header({
                 playClick();
                 setLanguage(e.target.value);
               }}
-              className="h-8.5 appearance-none rounded-xl border border-border/80 bg-card/90 px-2 pr-6 text-xs font-semibold text-foreground hover:bg-muted/60 focus:outline-none cursor-pointer shadow-2xs"
+              className="h-8.5 appearance-none rounded-xl border border-border/80 bg-card/90 px-2 pr-6 text-xs font-semibold text-foreground hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 cursor-pointer shadow-2xs"
               aria-label="Select language"
             >
               {languages.map((lang) => (
@@ -160,6 +181,7 @@ export default function Header({
             }}
             className="h-8.5 w-8.5 rounded-xl border-border/80 hover:bg-muted"
             title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+            aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
           >
             {theme === 'dark' ? (
               <Sun className="h-4 w-4 text-amber-400" />
@@ -177,6 +199,8 @@ export default function Header({
               setHistoryOpen(!historyOpen);
             }}
             className="h-8.5 gap-1.5 rounded-xl text-xs font-bold"
+            aria-label={'Open explanation history' + (historyCount ? ' (' + historyCount + ' saved)' : '')}
+            aria-expanded={historyOpen}
           >
             <History className="h-3.5 w-3.5" />
             <span className="hidden">History</span>
@@ -201,14 +225,18 @@ export default function Header({
           <div
             onClick={(e) => e.stopPropagation()}
             className="relative w-full max-w-sm rounded-3xl border border-indigo-500/30 bg-card p-6 shadow-2xl space-y-4 cursor-default"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="brainmate-rewards-title"
           >
             <div className="flex items-center justify-between border-b border-border pb-3">
               <div className="flex items-center gap-2">
                 <Trophy className="h-5 w-5 text-amber-500 fill-amber-500" />
-                <h3 className="text-base font-extrabold text-foreground">Learning Rewards</h3>
+                <h3 id="brainmate-rewards-title" className="text-base font-extrabold text-foreground">Learning Rewards</h3>
               </div>
               <button
                 type="button"
+                aria-label="Close learning rewards"
                 onClick={() => {
                   playPop();
                   setLevelModalOpen(false);
@@ -276,7 +304,7 @@ export default function Header({
                     <img src="/logo.png" alt="Logo" className="h-full w-full object-cover" />
                   </div>
                   <div>
-                    <h3 className="font-extrabold text-base text-foreground">BrainMate</h3>
+                    <h3 id="brainmate-menu-title" className="font-extrabold text-base text-foreground">BrainMate</h3>
                     <p className="text-xs text-muted-foreground font-semibold">
                       by NSD Creations
                     </p>
@@ -287,6 +315,7 @@ export default function Header({
                   variant="ghost"
                   size="icon"
                   onClick={() => setBrandMenuOpen(false)}
+                  aria-label="Close BrainMate menu"
                   className="h-8 w-8 rounded-xl hover:bg-muted"
                 >
                   <X className="h-4 w-4" />
@@ -335,6 +364,32 @@ export default function Header({
                   </div>
                   <ExternalLink className="h-3.5 w-3.5 text-muted-foreground group-hover:text-foreground transition-colors" />
                 </a>
+
+                <button
+                  type="button"
+                  onClick={async () => {
+                    playClick();
+                    const enabled = await requestNotificationPermission();
+                    setNotificationEnabled(enabled);
+                  }}
+                  className="w-full flex items-center justify-between rounded-2xl border border-border/80 bg-background/60 p-3 text-xs font-bold text-foreground hover:bg-muted transition-all group"
+                  aria-pressed={notificationEnabled}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <div className="h-7 w-7 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+                      <Bell className="h-4 w-4" />
+                    </div>
+                    <div className="flex flex-col text-left">
+                      <span>Study reminders</span>
+                      <span className="text-[10px] font-normal text-muted-foreground">
+                        {notificationEnabled ? 'Enabled on this device' : 'Optional re-engagement reminders'}
+                      </span>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-extrabold rounded-full px-2 py-1 bg-muted text-muted-foreground">
+                    {notificationEnabled ? 'On' : 'Off'}
+                  </span>
+                </button>
 
                 <Link
                   href="/about"

@@ -56,6 +56,8 @@ export default function TopicInput({
           value={topic}
           onChange={(e) => setTopic(e.target.value)}
           onKeyDown={handleKeyDown}
+          aria-label="Topic to explain"
+          maxLength={500}
           placeholder="What do you want to understand today? e.g. How does compound interest work? or Explain Quantum Entanglement..."
           disabled={loading && !streaming}
           className="min-h-[110px] w-full resize-none border-0 bg-transparent p-4 sm:p-5 text-sm sm:text-base focus-visible:ring-0 placeholder:text-muted-foreground/60 leading-relaxed font-medium"
@@ -67,10 +69,14 @@ export default function TopicInput({
             <span className="text-[11px] text-muted-foreground font-semibold hidden xs:inline">
               Press <kbd className="rounded-md border border-border px-1.5 py-0.5 text-[10px] font-extrabold bg-background shadow-2xs">Enter ↵</kbd>
             </span>
+            <span className="text-[10px] font-semibold text-muted-foreground hidden sm:inline">
+              {topic.length}/500
+            </span>
 
             {/* Surprise Me Button */}
             <button
               type="button"
+              aria-label="Choose a random example topic"
               onClick={handleSurpriseMe}
               className="inline-flex items-center gap-1.5 rounded-xl border border-purple-500/30 bg-purple-500/10 px-2.5 py-1 text-xs font-extrabold text-purple-600 dark:text-purple-300 hover:bg-purple-500/20 transition-all active:scale-95 cursor-pointer"
             >
@@ -138,7 +144,7 @@ export default function TopicInput({
       {/* Suggested Topics Pills */}
       <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
         <span className="flex items-center gap-1 text-[11px] font-extrabold text-muted-foreground">
-          <Zap className="h-3.5 w-3.5 text-amber-500 fill-amber-500" /> Trending Topics:
+          <Zap className="h-3.5 w-3.5 text-amber-500 fill-amber-500" /> Try a topic:
         </span>
         {SUGGESTIONS.map((item) => (
           <button

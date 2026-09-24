@@ -1,9 +1,86 @@
 import { NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
-import { getHistoryCollection, getStatsCollection } from '@/lib/mongo';
+import { getHistoryCollection } from '@/lib/mongo';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+
+const SESSION_COOKIE = 'brainmate_sid';
+const SESSION_MAX_AGE = 60 * 60 * 24 * 365;
+const VALID_MODES = new Set(['kid', 'student', 'pro']);
+const VALID_LANGUAGES = new Set([
+  'English', 'Spanish', 'French', 'German', 'Italian', 'Portuguese',
+  'Hindi', 'Telugu', 'Mandarin Chinese', 'Japanese', 'Korean', 'Arabic', 'Russian'
+]);
+const MAX_TOPIC_LENGTH = 500;
+const MAX_CONTEXT_LENGTH = 8000;
+const MAX_CHAT_MESSAGE_LENGTH = 2000;
+const MAX_CHAT_TOTAL_LENGTH = 12000;
+const MAX_HISTORY_PAYLOAD_LENGTH = 30000;
+
+function normalizeMode(value) {
+  const mode = String(value || 'student').trim().toLowerCase();
+  return VALID_MODES.has(mode) ? mode : null;
+}
+
+function normalizeLanguage(value) {
+  const language = String(value || 'English').trim();
+  return VALID_LANGUAGES.has(language) ? language : null;
+}
+
+function getLegacyUserId(value) {
+  const id = String(value || '').trim();
+  return /^[0-9a-f]{8}-[0-9a-f-]{27,}$/.test(id) ? id : null;
+}
+
+function getSessionId(request, legacyUserId = '') {
+  const existing = request.cookies.get(SESSION_COOKIE)?.value;
+  if (existing && /^[0-9a-f-]{36}$/.test(existing)) {
+    return { id: existing, isNew: false };
+  }
+
+  const legacy = getLegacyUserId(legacyUserId);
+  if (legacy) return { id: legacy, isNew: true };
+
+  return { id: crypto.randomUUID(), isNew: true };
+}
+
+function withSession(response, sessionId, isNew) {
+  if (isNew) {
+    response.cookies.set(SESSION_COOKIE, sessionId, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+      maxAge: SESSION_MAX_AGE
+    });
+  }
+  return response;
+}
+
+function jsonWithSession(payload, sessionId, isNew, status = 200) {
+  return withSession(NextResponse.json(payload, { status }), sessionId, isNew);
+}
+
+function validateTopic(value) {
+  const topic = String(value || '').trim();
+  if (!topic) return { error: 'topic is required' };
+  if (topic.length > MAX_TOPIC_LENGTH) {
+    return { error: `topic too long (max ${MAX_TOPIC_LENGTH} chars)` };
+  }
+  return { value: topic };
+}
+
+function validateMode(value) {
+  const mode = normalizeMode(value);
+  return mode ? { value: mode } : { error: 'invalid mode' };
+}
+
+function validateLanguage(value) {
+  const language = normalizeLanguage(value);
+  return language ? { value: language } : { error: 'unsupported language' };
+}
+
 
 // ============================================================================
 // CONFIGURATION & PROMPTS
@@ -410,59 +487,6 @@ async function callLLMOnce(topic, mode, language) {
   }
 }
 
-function getFallbackQuiz(topic) {
-  return [
-    {
-      index: 1,
-      question: `What is the core idea behind ${topic}?`,
-      options: [
-        { letter: 'A', text: 'It simplifies processes using core principles' },
-        { letter: 'B', text: 'It replaces all traditional models completely' },
-        { letter: 'C', text: 'It only works in theoretical scenarios' },
-        { letter: 'D', text: 'It requires manual human intervention at all times' }
-      ],
-      answer: 'A',
-      explain: `The main goal of ${topic} is to simplify and optimize core principles.`
-    },
-    {
-      index: 2,
-      question: `Which of the following best describes an advantage of ${topic}?`,
-      options: [
-        { letter: 'A', text: 'Higher efficiency and clearer structure' },
-        { letter: 'B', text: 'Unlimited resource consumption' },
-        { letter: 'C', text: 'Increased error rates' },
-        { letter: 'D', text: 'Slower response times' }
-      ],
-      answer: 'A',
-      explain: `${topic} provides structured clarity and improved efficiency.`
-    },
-    {
-      index: 3,
-      question: `In real-world applications, how is ${topic} typically applied?`,
-      options: [
-        { letter: 'A', text: 'To solve practical problems step-by-step' },
-        { letter: 'B', text: 'Only in fiction books' },
-        { letter: 'C', text: 'Without any data or inputs' },
-        { letter: 'D', text: 'By ignoring feedback' }
-      ],
-      answer: 'A',
-      explain: `Real-world implementation of ${topic} focuses on step-by-step practical problem solving.`
-    },
-    {
-      index: 4,
-      question: `What is a key takeaway when learning about ${topic}?`,
-      options: [
-        { letter: 'A', text: 'Understanding foundational concepts before diving deep' },
-        { letter: 'B', text: 'Memorizing complex terms without understanding' },
-        { letter: 'C', text: 'Avoiding practice and real examples' },
-        { letter: 'D', text: 'Assuming it cannot be improved' }
-      ],
-      answer: 'A',
-      explain: `Building a solid understanding of foundations is key for ${topic}.`
-    }
-  ];
-}
-
 async function callQuizLLM(topic, mode, language, context) {
   try {
     const config = getLLMConfig('openai');
@@ -480,7 +504,7 @@ async function callQuizLLM(topic, mode, language, context) {
           { role: 'user', content: buildQuizUserPrompt(topic, mode, language, context) }
         ]
       }),
-      signal: AbortSignal.timeout(3500)
+      signal: AbortSignal.timeout(7000)
     });
 
     if (res.ok) {
@@ -526,7 +550,7 @@ async function callQuizLLM(topic, mode, language, context) {
     console.error('[callQuizLLM Groq fast timeout/error]', err?.message);
   }
 
-  return getFallbackQuiz(topic);
+  return [];
 }
 
 // ============================================================================
@@ -729,21 +753,19 @@ export async function GET(request, { params }) {
   if (route === 'history') {
     try {
       const url = new URL(request.url);
-      const userId = (url.searchParams.get('user_id') || '').trim();
-      const limit = Math.min(parseInt(url.searchParams.get('limit') || '50', 10), 200);
-
-      if (!userId) {
-        return NextResponse.json({ error: 'user_id is required' }, { status: 400 });
-      }
+      const legacyUserId = url.searchParams.get('user_id') || '';
+      const { id: sessionId, isNew } = getSessionId(request, legacyUserId);
+      const rawLimit = parseInt(url.searchParams.get('limit') || '50', 10);
+      const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(rawLimit, 1), 100) : 50;
 
       const col = await getHistoryCollection();
       const items = await col
-        .find({ user_id: userId }, { projection: { _id: 0 } })
+        .find({ user_id: sessionId }, { projection: { _id: 0 } })
         .sort({ favorite: -1, favorited_at: -1, created_at: -1 })
         .limit(limit)
         .toArray();
 
-      return NextResponse.json({ user_id: userId, count: items.length, items });
+      return jsonWithSession({ count: items.length, items }, sessionId, isNew);
     } catch (err) {
       console.error('[history GET error]', err);
       return NextResponse.json({ error: 'Failed to load history' }, { status: 500 });
@@ -759,33 +781,30 @@ export async function DELETE(request, { params }) {
 
   try {
     const url = new URL(request.url);
-    const userId = (url.searchParams.get('user_id') || '').trim();
+    const legacyUserId = url.searchParams.get('user_id') || '';
+    const { id: sessionId, isNew } = getSessionId(request, legacyUserId);
 
-    if (!userId) {
-      return NextResponse.json({ error: 'user_id is required' }, { status: 400 });
-    }
-
-    // DELETE /api/history → clear all for user
+    // DELETE /api/history → clear all for current anonymous session
     if (route === 'history') {
       const col = await getHistoryCollection();
-      const r = await col.deleteMany({ user_id: userId });
-      return NextResponse.json({ ok: true, deleted: r.deletedCount });
+      const r = await col.deleteMany({ user_id: sessionId });
+      return jsonWithSession({ ok: true, deleted: r.deletedCount }, sessionId, isNew);
     }
 
-    // DELETE /api/history/:id → delete single entry for user
+    // DELETE /api/history/:id → delete single entry owned by current session
     if (pathArr[0] === 'history' && pathArr[1]) {
       const id = pathArr[1];
       const col = await getHistoryCollection();
-      const r = await col.deleteOne({ user_id: userId, id });
+      const r = await col.deleteOne({ user_id: sessionId, id });
 
       if (r.deletedCount === 0) {
-        return NextResponse.json({ error: 'Not found' }, { status: 404 });
+        return jsonWithSession({ error: 'Not found' }, sessionId, isNew, 404);
       }
 
-      return NextResponse.json({ ok: true });
+      return jsonWithSession({ ok: true }, sessionId, isNew);
     }
 
-    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    return jsonWithSession({ error: 'Not found' }, sessionId, isNew, 404);
   } catch (err) {
     console.error('[DELETE error]', err);
     return NextResponse.json({ error: 'Internal error' }, { status: 500 });
@@ -800,14 +819,21 @@ export async function POST(request, { params }) {
     // ========== POST /api/quiz (QUIZ GENERATION) ==========
     if (route === 'quiz') {
       const body = await request.json();
-      const topic = (body?.topic || '').toString().trim();
-      const mode = (body?.mode || 'student').toString().toLowerCase();
-      const language = (body?.language || 'English').toString();
-      const context = (body?.context || '').toString();
+      const topicResult = validateTopic(body?.topic);
+      const modeResult = validateMode(body?.mode);
+      const languageResult = validateLanguage(body?.language);
+      const context = String(body?.context || '');
 
-      if (!topic) {
-        return NextResponse.json({ error: 'topic is required' }, { status: 400 });
+      if (topicResult.error) return NextResponse.json({ error: topicResult.error }, { status: 400 });
+      if (modeResult.error) return NextResponse.json({ error: modeResult.error }, { status: 400 });
+      if (languageResult.error) return NextResponse.json({ error: languageResult.error }, { status: 400 });
+      if (context.length > MAX_CONTEXT_LENGTH) {
+        return NextResponse.json({ error: `context too long (max ${MAX_CONTEXT_LENGTH} chars)` }, { status: 400 });
       }
+
+      const topic = topicResult.value;
+      const mode = modeResult.value;
+      const language = languageResult.value;
 
       const questions = await callQuizLLM(topic, mode, language, context);
       return NextResponse.json({ ok: true, topic, questions });
@@ -816,16 +842,17 @@ export async function POST(request, { params }) {
     // ========== POST /api/explain (NON-STREAMING) ==========
     if (route === 'explain') {
       const body = await request.json();
-      const topic = (body?.topic || '').toString().trim();
-      const mode = (body?.mode || 'student').toString().toLowerCase();
-      const language = (body?.language || 'English').toString();
+      const topicResult = validateTopic(body?.topic);
+      const modeResult = validateMode(body?.mode);
+      const languageResult = validateLanguage(body?.language);
 
-      if (!topic) {
-        return NextResponse.json({ error: 'topic is required' }, { status: 400 });
-      }
-      if (topic.length > 500) {
-        return NextResponse.json({ error: 'topic too long (max 500 chars)' }, { status: 400 });
-      }
+      if (topicResult.error) return NextResponse.json({ error: topicResult.error }, { status: 400 });
+      if (modeResult.error) return NextResponse.json({ error: modeResult.error }, { status: 400 });
+      if (languageResult.error) return NextResponse.json({ error: languageResult.error }, { status: 400 });
+
+      const topic = topicResult.value;
+      const mode = modeResult.value;
+      const language = languageResult.value;
 
       const result = await callLLMOnce(topic, mode, language);
 
@@ -848,16 +875,17 @@ export async function POST(request, { params }) {
     // ========== POST /api/explain/stream (STREAMING) ==========
     if (route === 'explain/stream') {
       const body = await request.json();
-      const topic = (body?.topic || '').toString().trim();
-      const mode = (body?.mode || 'student').toString().toLowerCase();
-      const language = (body?.language || 'English').toString();
+      const topicResult = validateTopic(body?.topic);
+      const modeResult = validateMode(body?.mode);
+      const languageResult = validateLanguage(body?.language);
 
-      if (!topic) {
-        return NextResponse.json({ error: 'topic is required' }, { status: 400 });
-      }
-      if (topic.length > 500) {
-        return NextResponse.json({ error: 'topic too long (max 500 chars)' }, { status: 400 });
-      }
+      if (topicResult.error) return NextResponse.json({ error: topicResult.error }, { status: 400 });
+      if (modeResult.error) return NextResponse.json({ error: modeResult.error }, { status: 400 });
+      if (languageResult.error) return NextResponse.json({ error: languageResult.error }, { status: 400 });
+
+      const topic = topicResult.value;
+      const mode = modeResult.value;
+      const language = languageResult.value;
 
       const encoder = new TextEncoder();
       const stream = new ReadableStream({
@@ -882,7 +910,8 @@ export async function POST(request, { params }) {
 
             send('done', { finished_at: new Date().toISOString() });
           } catch (err) {
-            send('error', { message: err?.message || 'Stream generation failed' });
+            console.error('[explain stream error]', err);
+            send('error', { message: 'I could not generate that explanation right now. Please try again.' });
           } finally {
             controller.close();
           }
@@ -902,18 +931,25 @@ export async function POST(request, { params }) {
     // ========== POST /api/chat/stream (FOLLOW-UP CHAT STREAMING) ==========
     if (route === 'chat/stream') {
       const body = await request.json();
-      const topic = (body?.topic || '').toString().trim();
-      const mode = (body?.mode || 'student').toString().toLowerCase();
-      const language = (body?.language || 'English').toString();
-      const context = (body?.context || '').toString();
+      const topicResult = validateTopic(body?.topic);
+      const modeResult = validateMode(body?.mode);
+      const languageResult = validateLanguage(body?.language);
+      const context = String(body?.context || '');
       const messages = Array.isArray(body?.messages) ? body.messages : [];
 
-      if (!topic) {
-        return NextResponse.json({ error: 'topic is required' }, { status: 400 });
+      if (topicResult.error) return NextResponse.json({ error: topicResult.error }, { status: 400 });
+      if (modeResult.error) return NextResponse.json({ error: modeResult.error }, { status: 400 });
+      if (languageResult.error) return NextResponse.json({ error: languageResult.error }, { status: 400 });
+      if (context.length > MAX_CONTEXT_LENGTH) {
+        return NextResponse.json({ error: `context too long (max ${MAX_CONTEXT_LENGTH} chars)` }, { status: 400 });
       }
       if (messages.length === 0) {
         return NextResponse.json({ error: 'messages is required' }, { status: 400 });
       }
+
+      const topic = topicResult.value;
+      const mode = modeResult.value;
+      const language = languageResult.value;
 
       const modeInstruction = MODE_INSTRUCTIONS[mode] || MODE_INSTRUCTIONS.student;
       const langLine =
@@ -942,7 +978,13 @@ Rules:
       const safeMessages = messages
         .filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
         .slice(-20)
-        .map((m) => ({ role: m.role, content: m.content }));
+        .map((m) => ({ role: m.role, content: m.content.trim().slice(0, MAX_CHAT_MESSAGE_LENGTH) }))
+        .filter((m) => m.content.length > 0);
+
+      const totalMessageLength = safeMessages.reduce((sum, m) => sum + m.content.length, 0);
+      if (totalMessageLength > MAX_CHAT_TOTAL_LENGTH) {
+        return NextResponse.json({ error: `chat input too long (max ${MAX_CHAT_TOTAL_LENGTH} chars total)` }, { status: 413 });
+      }
 
       const fullMessages = [{ role: 'system', content: chatSystem }, ...safeMessages];
 
@@ -964,7 +1006,8 @@ Rules:
 
             send('done', { finished_at: new Date().toISOString() });
           } catch (err) {
-            send('error', { message: err?.message || 'Stream generation failed' });
+            console.error('[chat stream error]', err);
+            send('error', { message: 'I could not answer that right now. Please try again.' });
           } finally {
             controller.close();
           }
@@ -984,56 +1027,64 @@ Rules:
     // ========== POST /api/history (SAVE HISTORY) ==========
     if (route === 'history') {
       const body = await request.json();
-      const userId = (body?.user_id || '').toString().trim();
+      const suppliedUserId = (body?.user_id || '').toString().trim();
+      const { id: sessionId, isNew } = getSessionId(request, suppliedUserId);
       const payload = body?.payload || null;
 
-      if (!userId) {
-        return NextResponse.json({ error: 'user_id is required' }, { status: 400 });
-      }
       if (!payload || typeof payload !== 'object') {
-        return NextResponse.json({ error: 'payload is required' }, { status: 400 });
+        return jsonWithSession({ error: 'payload is required' }, sessionId, isNew, 400);
       }
 
-      const id = (body?.id || uuidv4()).toString();
+      const payloadText = JSON.stringify(payload);
+      if (payloadText.length > MAX_HISTORY_PAYLOAD_LENGTH) {
+        return jsonWithSession({ error: `payload too large (max ${MAX_HISTORY_PAYLOAD_LENGTH} chars)` }, sessionId, isNew, 413);
+      }
+
+      const id = String(body?.id || uuidv4()).trim();
+      if (id.length > 120) {
+        return jsonWithSession({ error: 'invalid history id' }, sessionId, isNew, 400);
+      }
+
       const doc = {
         id,
-        user_id: userId,
-        topic: payload?.topic || '',
-        mode: payload?.mode || 'student',
-        language: payload?.language || 'English',
+        user_id: sessionId,
+        topic: String(payload?.topic || '').slice(0, MAX_TOPIC_LENGTH),
+        mode: normalizeMode(payload?.mode) || 'student',
+        language: normalizeLanguage(payload?.language) || 'English',
         favorite: !!body?.favorite,
         created_at: body?.created_at || new Date().toISOString(),
         payload
       };
 
       const col = await getHistoryCollection();
-      await col.updateOne({ id }, { $set: doc }, { upsert: true });
+      await col.updateOne(
+        { id, user_id: sessionId },
+        { $set: doc },
+        { upsert: true }
+      );
 
-      return NextResponse.json({ ok: true, id, entry: doc });
+      return jsonWithSession({ ok: true, id, entry: doc }, sessionId, isNew);
     }
 
     // ========== POST /api/history/:id/favorite (TOGGLE FAVORITE) ==========
     if (pathArr[0] === 'history' && pathArr[1] && pathArr[2] === 'favorite') {
       const id = pathArr[1];
       const body = await request.json();
-      const userId = (body?.user_id || '').toString().trim();
+      const suppliedUserId = (body?.user_id || '').toString().trim();
+      const { id: sessionId, isNew } = getSessionId(request, suppliedUserId);
       const favorite = !!body?.favorite;
-
-      if (!userId) {
-        return NextResponse.json({ error: 'user_id is required' }, { status: 400 });
-      }
 
       const col = await getHistoryCollection();
       const r = await col.updateOne(
-        { id, user_id: userId },
+        { id, user_id: sessionId },
         { $set: { favorite, favorited_at: favorite ? new Date().toISOString() : null } }
       );
 
       if (r.matchedCount === 0) {
-        return NextResponse.json({ error: 'Not found' }, { status: 404 });
+        return jsonWithSession({ error: 'Not found' }, sessionId, isNew, 404);
       }
 
-      return NextResponse.json({ ok: true, id, favorite });
+      return jsonWithSession({ ok: true, id, favorite }, sessionId, isNew);
     }
 
     return NextResponse.json({ error: 'Not found' }, { status: 404 });

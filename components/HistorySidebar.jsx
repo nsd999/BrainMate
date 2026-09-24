@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { History, X, Search, Star, Trash2, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,6 +18,15 @@ export default function HistorySidebar({
   const [search, setSearch] = useState('');
   const [filterFav, setFilterFav] = useState(false);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const filteredHistory = history.filter((item) => {
@@ -27,7 +36,19 @@ export default function HistorySidebar({
   });
 
   return (
-    <div className="fixed inset-y-0 right-0 z-50 flex w-full max-w-sm flex-col border-l border-border/80 bg-background shadow-2xl animate-in slide-in-from-right duration-200">
+    <div className="fixed inset-0 z-50 flex">
+      <button
+        type="button"
+        aria-label="Close explanation history"
+        onClick={onClose}
+        className="absolute inset-0 bg-black/40 backdrop-blur-[1px] cursor-default"
+      />
+      <div
+        className="relative ml-auto flex h-full w-full max-w-sm flex-col border-l border-border/80 bg-background shadow-2xl animate-in slide-in-from-right duration-200"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="brainmate-history-title"
+      >
       {/* Sidebar Header */}
       <div className="flex items-center justify-between border-b border-border/60 px-4 py-3 bg-muted/20">
         <div className="flex items-center gap-2">
@@ -35,11 +56,13 @@ export default function HistorySidebar({
             <History className="h-3.5 w-3.5" />
           </span>
           <div>
-            <h3 className="text-sm font-bold text-foreground">Explanation History</h3>
+            <h3 id="brainmate-history-title" className="text-sm font-bold text-foreground">Explanation History</h3>
             <p className="text-xs text-muted-foreground">{history.length} saved concepts</p>
           </div>
         </div>
         <button
+          type="button"
+          aria-label="Close explanation history"
           onClick={onClose}
           className="rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
         >
@@ -53,6 +76,7 @@ export default function HistorySidebar({
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
+            aria-label="Search saved topics"
             placeholder="Search saved topics..."
             className="h-8 pl-8 text-xs bg-card border-border rounded-lg"
           />
@@ -98,6 +122,8 @@ export default function HistorySidebar({
                 </button>
                 <div className="flex items-center gap-1">
                   <button
+                    type="button"
+                    aria-label={item.favorite ? 'Remove from starred' : 'Add to starred'}
                     onClick={() => onToggleFavorite(item.id, !item.favorite)}
                     className="p-1 text-muted-foreground hover:text-amber-500 transition-colors"
                   >
@@ -109,6 +135,8 @@ export default function HistorySidebar({
                     />
                   </button>
                   <button
+                    type="button"
+                    aria-label={'Delete ' + item.topic}
                     onClick={() => onDeleteHistory(item.id)}
                     className="p-1 text-muted-foreground hover:text-rose-500 transition-colors"
                   >
@@ -129,6 +157,7 @@ export default function HistorySidebar({
             </div>
           ))
         )}
+      </div>
       </div>
     </div>
   );

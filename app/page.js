@@ -15,6 +15,7 @@ import { jsPDF } from 'jspdf';
 import { toast } from 'sonner';
 import { Sparkles, X, Brain, CheckCircle2, Zap, ArrowRight } from 'lucide-react';
 import { setupReengagementNotification } from '@/lib/notifications';
+import { setSoundMuted as persistSoundMuted } from '@/lib/sound';
 
 const MODES = [
   { id: 'kid', label: "Explain like I'm 8", hint: 'Simple & playful' },
@@ -30,6 +31,7 @@ const LANGUAGES = [
   { code: 'Italian', label: 'Italiano', flag: '🇮🇹' },
   { code: 'Portuguese', label: 'Português', flag: '🇵🇹' },
   { code: 'Hindi', label: 'हिन्दी', flag: '🇮🇳' },
+  { code: 'Telugu', label: 'తెలుగు', flag: '🇮🇳' },
   { code: 'Mandarin Chinese', label: '中文', flag: '🇨🇳' },
   { code: 'Japanese', label: '日本語', flag: '🇯🇵' },
   { code: 'Korean', label: '한국어', flag: '🇰🇷' },
@@ -134,8 +136,7 @@ export default function Home() {
   const [result, setResult] = useState(null);
   const [activeSection, setActiveSection] = useState(null);
 
-  // History & Identity
-  const [userId, setUserId] = useState('');
+  // History
   const [history, setHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -167,23 +168,17 @@ export default function Home() {
   const abortRef = useRef(null);
   const chatAbortRef = useRef(null);
 
-  // Initialize theme, language, user_id, streak & xp
+  // Initialize theme, language, streak, XP & sound
   useEffect(() => {
     try {
-      let uid = localStorage.getItem('brainmate.user_id');
-      if (!uid) {
-        uid = (typeof crypto !== 'undefined' && crypto.randomUUID && crypto.randomUUID()) ||
-          `${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
-        localStorage.setItem('brainmate.user_id', uid);
-      }
-      setUserId(uid);
-
       const savedTheme = localStorage.getItem(THEME_KEY) || 'dark';
       setTheme(savedTheme);
       document.documentElement.classList.toggle('dark', savedTheme === 'dark');
 
       const savedLang = localStorage.getItem(LANG_KEY);
-      if (savedLang) setLanguage(savedLang);
+      if (savedLang && LANGUAGES.some((item) => item.code === savedLang)) {
+        setLanguage(savedLang);
+      }
 
       // Streak & XP restore
       const savedXp = parseInt(localStorage.getItem('brainmate.xp') || '60', 10);
@@ -209,6 +204,35 @@ export default function Home() {
     });
   };
 
+  const recordLearningActivity = () => {
+    try {
+      const today = new Date();
+      const dateKey = [
+        today.getFullYear(),
+        String(today.getMonth() + 1).padStart(2, '0'),
+        String(today.getDate()).padStart(2, '0')
+      ].join('-');
+      const lastDate = localStorage.getItem('brainmate.last_active_date');
+
+      if (lastDate === dateKey) return;
+
+      const yesterday = new Date(today);
+      yesterday.setDate(today.getDate() - 1);
+      const yesterdayKey = [
+        yesterday.getFullYear(),
+        String(yesterday.getMonth() + 1).padStart(2, '0'),
+        String(yesterday.getDate()).padStart(2, '0')
+      ].join('-');
+
+      const savedStreak = Number.parseInt(localStorage.getItem('brainmate.streak') || '0', 10);
+      const nextStreak = lastDate === yesterdayKey ? Math.max(savedStreak, 1) + 1 : 1;
+
+      localStorage.setItem('brainmate.last_active_date', dateKey);
+      localStorage.setItem('brainmate.streak', nextStreak.toString());
+      setStreak(nextStreak);
+    } catch (e) {}
+  };
+
   // Sync theme changes to localStorage
   const handleSetTheme = (newTheme) => {
     setTheme(newTheme);
@@ -227,14 +251,13 @@ export default function Home() {
     } catch (e) {}
   };
 
-  // Load history from API
+  // Load history from the anonymous server session
   useEffect(() => {
-    if (!userId) return;
     let isCancelled = false;
     (async () => {
       setHistoryLoading(true);
       try {
-        const res = await fetch(`/api/history?user_id=${encodeURIComponent(userId)}`);
+        const res = await fetch('/api/history');
         if (res.ok) {
           const data = await res.json();
           if (!isCancelled && Array.isArray(data?.items)) {
@@ -259,7 +282,7 @@ export default function Home() {
     return () => {
       isCancelled = true;
     };
-  }, [userId]);
+  }, []);
 
   // Save item to history
   const saveToHistory = async (item) => {
@@ -270,7 +293,6 @@ export default function Home() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          user_id: userId,
           id: item.id,
           favorite: item.favorite || false,
           created_at: item.created_at,
@@ -289,7 +311,7 @@ export default function Home() {
       await fetch(`/api/history/${id}/favorite`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: userId, favorite })
+        body: JSON.stringify({ favorite })
       });
     } catch (e) {}
   };
@@ -298,7 +320,7 @@ export default function Home() {
   const handleDeleteHistory = async (id) => {
     setHistory((prev) => prev.filter((item) => item.id !== id));
     try {
-      await fetch(`/api/history?id=${id}&user_id=${encodeURIComponent(userId)}`, {
+      await fetch(`/api/history?id=${encodeURIComponent(id)}`, {
         method: 'DELETE'
       });
     } catch (e) {}
@@ -393,6 +415,11 @@ export default function Home() {
       setActiveSection(null);
 
       if (finalResult.simple_explanation || finalResult.summary) {
+        handleAddXp(20);
+        recordLearningActivity();
+        try {
+          localStorage.setItem('brainmate.last_learning_at', new Date().toISOString());
+        } catch (e) {}
         saveToHistory({
           id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
           topic: t,
@@ -552,6 +579,22 @@ export default function Home() {
     window.speechSynthesis.cancel();
 
     const utterance = new SpeechSynthesisUtterance(text);
+    const speechLocales = {
+      English: 'en-US',
+      Spanish: 'es-ES',
+      French: 'fr-FR',
+      German: 'de-DE',
+      Italian: 'it-IT',
+      Portuguese: 'pt-BR',
+      Hindi: 'hi-IN',
+      Telugu: 'te-IN',
+      'Mandarin Chinese': 'zh-CN',
+      Japanese: 'ja-JP',
+      Korean: 'ko-KR',
+      Arabic: 'ar-SA',
+      Russian: 'ru-RU'
+    };
+    utterance.lang = speechLocales[language] || 'en-US';
     utterance.rate = 1.0;
     utterance.pitch = 1.0;
 
@@ -677,18 +720,33 @@ export default function Home() {
     }
   };
 
-  // Share URL Output
-  const handleShare = () => {
+  // Share the actual learning content instead of a generic URL.
+  const handleShare = async () => {
     if (!result) return;
-    if (navigator.share) {
-      navigator.share({
-        title: `BrainMate: ${result.topic}`,
-        text: `Check out this clear explanation of ${result.topic} on BrainMate!`,
-        url: window.location.href
-      }).catch(() => {});
-    } else {
-      navigator.clipboard.writeText(window.location.href);
-      toast.success('Link copied to clipboard');
+
+    const shareText = [
+      `BrainMate: ${result.topic}`,
+      '',
+      result.simple_explanation || '',
+      result.summary ? `\nTL;DR: ${result.summary}` : '',
+      '',
+      'Learn more with BrainMate.'
+    ].join('\n').trim();
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: `BrainMate: ${result.topic}`,
+          text: shareText
+        });
+      } else {
+        await navigator.clipboard.writeText(shareText);
+        toast.success('Explanation copied to clipboard');
+      }
+    } catch (err) {
+      if (err?.name !== 'AbortError') {
+        toast.error('Could not share the explanation');
+      }
     }
   };
 
@@ -709,7 +767,10 @@ export default function Home() {
           streak={streak}
           xp={xp}
           soundMuted={soundMuted}
-          setSoundMuted={setSoundMuted}
+          setSoundMuted={(next) => {
+            setSoundMuted(next);
+            persistSoundMuted(next);
+          }}
         />
 
         {/* Main Container */}
