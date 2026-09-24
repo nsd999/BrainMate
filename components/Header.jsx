@@ -77,7 +77,7 @@ export default function Header({
               playClick();
               setBrandMenuOpen(!brandMenuOpen);
             }}
-            className="flex items-center gap-2.5 group text-left focus:outline-none rounded-2xl p-1 -ml-1 transition-all hover:bg-muted/60 active:scale-95"
+            className="flex items-center gap-2.5 group text-left rounded-2xl p-1 -ml-1 transition-all hover:bg-muted/60 active:scale-95"
             title="Menu & Brand links"
             aria-label="Open BrainMate menu"
             aria-expanded={brandMenuOpen}
@@ -159,7 +159,7 @@ export default function Header({
                 playClick();
                 setLanguage(e.target.value);
               }}
-              className="h-8.5 appearance-none rounded-xl border border-border/80 bg-card/90 px-2 pr-6 text-xs font-semibold text-foreground hover:bg-muted/60 focus:outline-none cursor-pointer shadow-2xs"
+              className="h-8.5 appearance-none rounded-xl border border-border/80 bg-card/90 px-2 pr-6 text-xs font-semibold text-foreground hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 cursor-pointer shadow-2xs"
               aria-label="Select language"
             >
               {languages.map((lang) => (
@@ -181,6 +181,7 @@ export default function Header({
             }}
             className="h-8.5 w-8.5 rounded-xl border-border/80 hover:bg-muted"
             title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+            aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
           >
             {theme === 'dark' ? (
               <Sun className="h-4 w-4 text-amber-400" />
@@ -235,6 +236,7 @@ export default function Header({
               </div>
               <button
                 type="button"
+                aria-label="Close learning rewards"
                 onClick={() => {
                   playPop();
                   setLevelModalOpen(false);
@@ -313,6 +315,7 @@ export default function Header({
                   variant="ghost"
                   size="icon"
                   onClick={() => setBrandMenuOpen(false)}
+                  aria-label="Close BrainMate menu"
                   className="h-8 w-8 rounded-xl hover:bg-muted"
                 >
                   <X className="h-4 w-4" />
