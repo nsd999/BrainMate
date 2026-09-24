@@ -175,7 +175,9 @@ export default function Home() {
       document.documentElement.classList.toggle('dark', savedTheme === 'dark');
 
       const savedLang = localStorage.getItem(LANG_KEY);
-      if (savedLang) setLanguage(savedLang);
+      if (savedLang && LANGUAGES.some((item) => item.code === savedLang)) {
+        setLanguage(savedLang);
+      }
 
       // Streak & XP restore
       const savedXp = parseInt(localStorage.getItem('brainmate.xp') || '60', 10);
