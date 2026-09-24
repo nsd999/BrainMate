@@ -167,17 +167,9 @@ export default function Home() {
   const abortRef = useRef(null);
   const chatAbortRef = useRef(null);
 
-  // Initialize theme, language, user_id, streak & xp
+  // Initialize theme, language, streak, XP & sound
   useEffect(() => {
     try {
-      let uid = localStorage.getItem('brainmate.user_id');
-      if (!uid) {
-        uid = (typeof crypto !== 'undefined' && crypto.randomUUID && crypto.randomUUID()) ||
-          `${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
-        localStorage.setItem('brainmate.user_id', uid);
-      }
-      setUserId(uid);
-
       const savedTheme = localStorage.getItem(THEME_KEY) || 'dark';
       setTheme(savedTheme);
       document.documentElement.classList.toggle('dark', savedTheme === 'dark');
