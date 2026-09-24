@@ -22,6 +22,15 @@ export default function ChatDrawer({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, streaming]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const handleKeyDown = (e) => {
@@ -34,7 +43,19 @@ export default function ChatDrawer({
   };
 
   return (
-    <div className="fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col border-l border-border/80 bg-background shadow-2xl animate-in slide-in-from-right duration-200">
+    <div className="fixed inset-0 z-50 flex">
+      <button
+        type="button"
+        aria-label="Close follow-up chat"
+        onClick={onClose}
+        className="absolute inset-0 bg-black/40 backdrop-blur-[1px] cursor-default"
+      />
+      <div
+        className="relative ml-auto flex h-full w-full max-w-md flex-col border-l border-border/80 bg-background shadow-2xl animate-in slide-in-from-right duration-200"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="brainmate-chat-title"
+      >
       {/* Header */}
       <div className="flex items-center justify-between border-b border-border/60 px-4 py-3 bg-muted/20">
         <div className="flex items-center gap-2">
@@ -42,11 +63,13 @@ export default function ChatDrawer({
             <MessageSquare className="h-3.5 w-3.5" />
           </span>
           <div>
-            <h3 className="text-sm font-bold text-foreground">Follow-Up Chat</h3>
+            <h3 id="brainmate-chat-title" className="text-sm font-bold text-foreground">Follow-Up Chat</h3>
             <p className="text-xs text-muted-foreground line-clamp-1">Topic: {topic}</p>
           </div>
         </div>
         <button
+          type="button"
+          aria-label="Close follow-up chat"
           onClick={onClose}
           className="rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
         >
@@ -110,12 +133,14 @@ export default function ChatDrawer({
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
+            aria-label="Follow-up question"
             placeholder="Type a follow-up question..."
             rows={1}
             disabled={streaming}
             className="min-h-[36px] flex-1 resize-none border-0 bg-transparent px-2 text-xs sm:text-sm focus-visible:ring-0 placeholder:text-muted-foreground/60"
           />
           <Button
+            aria-label={streaming ? 'Sending follow-up question' : 'Send follow-up question'}
             onClick={onSend}
             disabled={!input.trim() || streaming}
             size="icon"
@@ -124,6 +149,7 @@ export default function ChatDrawer({
             {streaming ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
           </Button>
         </div>
+      </div>
       </div>
     </div>
   );
