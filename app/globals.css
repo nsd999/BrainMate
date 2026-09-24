@@ -78,6 +78,12 @@
   * {
     @apply border-border;
   }
+
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+
   body {
     background: var(--bm-bg);
     color: var(--bm-text);
@@ -119,3 +125,18 @@
 ::-webkit-scrollbar-thumb:hover { background: rgba(99, 102, 241, 0.6); }
 
 
+
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto !important;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
