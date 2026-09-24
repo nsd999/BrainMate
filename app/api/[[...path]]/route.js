@@ -487,59 +487,6 @@ async function callLLMOnce(topic, mode, language) {
   }
 }
 
-function getFallbackQuiz(topic) {
-  return [
-    {
-      index: 1,
-      question: `What is the core idea behind ${topic}?`,
-      options: [
-        { letter: 'A', text: 'It simplifies processes using core principles' },
-        { letter: 'B', text: 'It replaces all traditional models completely' },
-        { letter: 'C', text: 'It only works in theoretical scenarios' },
-        { letter: 'D', text: 'It requires manual human intervention at all times' }
-      ],
-      answer: 'A',
-      explain: `The main goal of ${topic} is to simplify and optimize core principles.`
-    },
-    {
-      index: 2,
-      question: `Which of the following best describes an advantage of ${topic}?`,
-      options: [
-        { letter: 'A', text: 'Higher efficiency and clearer structure' },
-        { letter: 'B', text: 'Unlimited resource consumption' },
-        { letter: 'C', text: 'Increased error rates' },
-        { letter: 'D', text: 'Slower response times' }
-      ],
-      answer: 'B',
-      explain: `${topic} can improve efficiency and provide a clearer structure when applied appropriately.`
-    },
-    {
-      index: 3,
-      question: `In real-world applications, how is ${topic} typically applied?`,
-      options: [
-        { letter: 'A', text: 'Only in fiction books' },
-        { letter: 'B', text: 'Without any data or inputs' },
-        { letter: 'C', text: 'To solve practical problems step-by-step' },
-        { letter: 'D', text: 'By ignoring feedback' }
-      ],
-      answer: 'C',
-      explain: `Real-world use of ${topic} focuses on practical problem solving with appropriate inputs and feedback.`
-    },
-    {
-      index: 4,
-      question: `What is a key takeaway when learning about ${topic}?`,
-      options: [
-        { letter: 'A', text: 'Avoiding practice and real examples' },
-        { letter: 'B', text: 'Understanding foundational concepts before diving deep' },
-        { letter: 'C', text: 'Memorizing complex terms without understanding' },
-        { letter: 'D', text: 'Assuming it cannot be improved' }
-      ],
-      answer: 'B',
-      explain: `Building a solid understanding of foundations is key for ${topic}.`
-    }
-  ];
-}
-
 async function callQuizLLM(topic, mode, language, context) {
   try {
     const config = getLLMConfig('openai');
@@ -603,7 +550,7 @@ async function callQuizLLM(topic, mode, language, context) {
     console.error('[callQuizLLM Groq fast timeout/error]', err?.message);
   }
 
-  return getFallbackQuiz(topic);
+  return [];
 }
 
 // ============================================================================
