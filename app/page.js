@@ -573,6 +573,21 @@ export default function Home() {
     window.speechSynthesis.cancel();
 
     const utterance = new SpeechSynthesisUtterance(text);
+    const speechLocales = {
+      English: 'en-US',
+      Spanish: 'es-ES',
+      French: 'fr-FR',
+      German: 'de-DE',
+      Italian: 'it-IT',
+      Portuguese: 'pt-BR',
+      Hindi: 'hi-IN',
+      'Mandarin Chinese': 'zh-CN',
+      Japanese: 'ja-JP',
+      Korean: 'ko-KR',
+      Arabic: 'ar-SA',
+      Russian: 'ru-RU'
+    };
+    utterance.lang = speechLocales[language] || 'en-US';
     utterance.rate = 1.0;
     utterance.pitch = 1.0;
 
