@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { HelpCircle, CheckCircle2, XCircle, Trophy, ArrowRight, X, Loader2, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -19,6 +19,22 @@ export default function QuizModal({
   const [currentIdx, setCurrentIdx] = useState(0);
   const [selectedAnswers, setSelectedAnswers] = useState({});
   const [showResults, setShowResults] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setCurrentIdx(0);
+    setSelectedAnswers({});
+    setShowResults(false);
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -66,8 +82,13 @@ export default function QuizModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-in fade-in duration-150">
-      <div className="relative w-full max-w-lg rounded-3xl border border-indigo-500/30 bg-card p-6 shadow-2xl space-y-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-in fade-in duration-150" role="presentation">
+      <div
+        className="relative w-full max-w-lg rounded-3xl border border-indigo-500/30 bg-card p-6 shadow-2xl space-y-4"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="brainmate-quiz-title"
+      >
         {/* Modal Header */}
         <div className="flex items-center justify-between border-b border-border pb-3.5">
           <div className="flex items-center gap-2.5">
@@ -75,11 +96,13 @@ export default function QuizModal({
               <HelpCircle className="h-4.5 w-4.5" />
             </span>
             <div>
-              <h3 className="text-base font-black text-foreground">Pop Memory Quiz</h3>
+              <h3 id="brainmate-quiz-title" className="text-base font-black text-foreground">Pop Memory Quiz</h3>
               <p className="text-xs text-muted-foreground font-semibold line-clamp-1">{topic}</p>
             </div>
           </div>
           <button
+            type="button"
+            aria-label="Close memory quiz"
             onClick={() => {
               playClick();
               onClose();
@@ -105,7 +128,7 @@ export default function QuizModal({
             </div>
             <div>
               <h4 className="text-xl font-black text-foreground">Quiz Completed! +50 XP ⚡</h4>
-              <p className="text-xs text-muted-foreground mt-1 font-semibold">
+              <p aria-live="polite" className="text-xs text-muted-foreground mt-1 font-semibold">
                 You scored <span className="font-black text-indigo-600 dark:text-indigo-400 text-base">{calculateScore()}</span> out of{' '}
                 <span className="font-black text-base">{questions.length}</span>
               </p>
@@ -150,6 +173,17 @@ export default function QuizModal({
                 Done
               </Button>
             </div>
+          </div>
+        ) : questions.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-10 gap-3 text-center">
+            <HelpCircle className="h-8 w-8 text-muted-foreground" />
+            <p className="text-sm font-black text-foreground">Quiz questions are unavailable.</p>
+            <p className="text-xs text-muted-foreground max-w-xs">
+              BrainMate could not create a quiz right now. You can close this and try again.
+            </p>
+            <Button onClick={onClose} className="rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-extrabold">
+              Close
+            </Button>
           </div>
         ) : currentQ ? (
           /* Question Screen */
