@@ -9,6 +9,13 @@ const inter = Inter({
   display: 'swap',
 });
 
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+  colorScheme: 'dark light',
+};
+
 export const metadata = {
   title: 'BrainMate — Understand anything. Take action.',
   description:
@@ -28,10 +35,6 @@ const themeBootstrap = `
 (function () {
   try {
     var t = localStorage.getItem('brainmate.theme');
-    var prefersDark =
-      window.matchMedia &&
-      window.matchMedia('(prefers-color-scheme: dark)').matches;
-
     var dark = t ? t === 'dark' : true;
 
     if (dark) {
