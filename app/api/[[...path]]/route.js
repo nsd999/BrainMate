@@ -10,7 +10,7 @@ const SESSION_MAX_AGE = 60 * 60 * 24 * 365;
 const VALID_MODES = new Set(['kid', 'student', 'pro']);
 const VALID_LANGUAGES = new Set([
   'English', 'Spanish', 'French', 'German', 'Italian', 'Portuguese',
-  'Hindi', 'Mandarin Chinese', 'Japanese', 'Korean', 'Arabic', 'Russian'
+  'Hindi', 'Telugu', 'Mandarin Chinese', 'Japanese', 'Korean', 'Arabic', 'Russian'
 ]);
 const MAX_TOPIC_LENGTH = 500;
 const MAX_CONTEXT_LENGTH = 8000;
