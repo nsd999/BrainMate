@@ -1003,7 +1003,7 @@ result.summary ||
 
 return (
 <div className="min-h-screen bg-[var(--bm-bg)]">
-{/* Top bar /}
+{/* Top bar */}
 <header className="sticky top-0 z-20 bg-[var(--bm-bg)]/80 backdrop-blur border-b border-[var(--bm-border)]">
 <div className="mx-auto max-w-5xl px-5 sm:px-8 h-14 flex items-center justify-between">
 <div className="flex items-center gap-2">
