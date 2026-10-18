@@ -963,7 +963,7 @@ const clearHistory = async () => {
 setHistory([]);
 if (!userId) return;
 try {
-await fetch(/api/history?user_id=${encodeURIComponent(userId)}, {
+await fetch(`/api/history?user_id=${encodeURIComponent(userId)}`, {
 method: 'DELETE'
 });
 } catch (e) {
