@@ -949,7 +949,7 @@ return [...favs, ...rest];
 });
 if (!userId) return;
 try {
-await fetch(/api/history/${encodeURIComponent(id)}/favorite, {
+await fetch(`/api/history/${encodeURIComponent(id)}/favorite`, {
 method: 'POST',
 headers: { 'Content-Type': 'application/json' },
 body: JSON.stringify({ user_id: userId, favorite: nextFav })
