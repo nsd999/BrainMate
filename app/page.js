@@ -1013,7 +1013,7 @@ return (
 <span className="font-semibold tracking-tight text-[15px]">BrainMate</span>
 </div>
 <div className="flex items-center gap-3 sm:gap-4">
-{/ Language picker */}
+{/* Language picker */}
 <div className="relative">
 <button
 onClick={() => setLangOpen((o) => !o)}
