@@ -801,7 +801,7 @@ const safeFilename = (s) =>
 const exportMarkdown = () => {
 if (!result) return;
 const md = buildMarkdown(result);
-downloadBlob(brainmate-${safeFilename(result.topic)}.md, md, 'text/markdown;charset=utf-8');
+downloadBlob(`brainmate-${safeFilename(result.topic)}.md`, md, 'text/markdown;charset=utf-8');
 toast.success('Markdown downloaded');
 setExportOpen(false);
 };
