@@ -924,7 +924,7 @@ setHistory((prev) => prev.filter((h) => h.id !== id));
 if (!userId) return;
 try {
 await fetch(
-/api/history/${encodeURIComponent(id)}?user_id=${encodeURIComponent(userId)},
+  `/api/history/${encodeURIComponent(id)}?user_id=${encodeURIComponent(userId)}`,
 { method: 'DELETE' }
 );
 } catch (e) {
