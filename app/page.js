@@ -266,7 +266,7 @@ uid =
 localStorage.setItem('brainmate.user_id', uid);
 }
 } catch (e) {
-uid = ${Date.now()}-${Math.random().toString(36).slice(2, 12)};
+uid = `${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
 }
 setUserId(uid);
 }, []);
