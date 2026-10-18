@@ -889,7 +889,7 @@ const handleShare = async () => {
 if (!result) return;
 const text = formatForShare(result);
 const shareData = {
-title: BrainMate — ${result.topic},
+title: `BrainMate — ${result.topic}`,
 text,
 url: typeof window !== 'undefined' ? window.location.href : undefined
 };
